@@ -176,8 +176,8 @@ Future<TradeResult> proposeTrade(
   // (and clear of traded-away ones) — same post-roster-change hygiene as
   // lib/league/game_runner.dart's injury handling and season_rollover.dart's
   // AI offseason pass. No-op for the human-controlled team, same as always.
-  await ai_team_manager.refreshAiLineup(db, teamId: teamAId, seasonId: seasonId);
-  await ai_team_manager.refreshAiLineup(db, teamId: teamBId, seasonId: seasonId);
+  await ai_team_manager.refreshAiLineup(db, teamId: teamAId);
+  await ai_team_manager.refreshAiLineup(db, teamId: teamBId);
 
   return const TradeResult(accepted: true);
 }

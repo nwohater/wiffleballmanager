@@ -47,68 +47,54 @@ void main() {
   tearDown(() async => db.close());
 
   group('refreshAiLineup', () {
-    test('rebuilds an AI team lineup from observed stats, ignoring true ratings', () async {
+    test('rebuilds an AI team lineup from true ratings (Phase 5 smarter AI)', () async {
       final teamId = teamIds[0];
       final players = (await (db.select(db.players)..where((p) => p.teamId.equals(teamId))).get())
           .map((p) => p.id)
           .toList();
-      final starter = players[0];
-      final batters = players.sublist(1); // 5 remaining
+      final ace = players[0];
+      final secondArm = players[1];
+      final batters = players.sublist(2); // 4 remaining
 
-      // Make `starter` the clear best pitcher by observed stats regardless
-      // of true ratings.
-      await db.into(db.pitchingStats).insert(PitchingStatsCompanion.insert(
-            gameId: gameId,
-            playerId: starter,
-            teamId: teamId,
-            outsRecorded: const Value(9),
-            er: const Value(0),
-            bb: const Value(0),
-            h: const Value(0),
-          ));
+      // Make ace/secondArm the clear top 2 pitchers by true ratings.
+      await (db.update(db.players)..where((p) => p.id.equals(ace))).write(
+        const PlayersCompanion(control: Value(99), stamina: Value(99)),
+      );
+      await (db.update(db.players)..where((p) => p.id.equals(secondArm))).write(
+        const PlayersCompanion(control: Value(90), stamina: Value(90)),
+      );
 
-      // Give the 5 batters a strict, distinct batting-score ranking.
+      // Give the 4 remaining batters a strict, distinct batting-rating
+      // ranking (and low pitching ratings, so they never outrank the two
+      // arms above).
       for (var i = 0; i < batters.length; i++) {
-        final ab = 10;
-        final hits = 5 - i; // strictly decreasing hit total -> decreasing OBP/SLG
-        await db.into(db.battingStats).insert(BattingStatsCompanion.insert(
-              gameId: gameId,
-              playerId: batters[i],
-              teamId: teamId,
-              pa: Value(ab),
-              ab: Value(ab),
-              h: Value(hits),
-            ));
+        final battingRating = 80 - i * 10; // strictly decreasing
+        await (db.update(db.players)..where((p) => p.id.equals(batters[i]))).write(
+          PlayersCompanion(
+            contact: Value(battingRating),
+            power: Value(battingRating),
+            discipline: Value(battingRating),
+            control: const Value(5),
+            stamina: const Value(5),
+          ),
+        );
       }
 
       // The two lowest-ranked batters get clearly-best fielding, so
       // fielder2/3 should be picked from them, not from the top batters.
-      final fielderA = batters[3];
-      final fielderB = batters[4];
-      await db.into(db.fieldingStats).insert(FieldingStatsCompanion.insert(
-            gameId: gameId,
-            playerId: fielderA,
-            teamId: teamId,
-            outsPlayed: const Value(9),
-            tc: const Value(20),
-            e: const Value(0),
-          ));
-      // fpct 24/25 = 0.96 — clearly above the neutral 0.95 the other
-      // (fielding-stats-less) batters get, but below fielderA's 1.0, so the
-      // fielder2/3 ranking is unambiguous.
-      await db.into(db.fieldingStats).insert(FieldingStatsCompanion.insert(
-            gameId: gameId,
-            playerId: fielderB,
-            teamId: teamId,
-            outsPlayed: const Value(9),
-            tc: const Value(25),
-            e: const Value(1),
-          ));
+      final fielderA = batters[2];
+      final fielderB = batters[3];
+      await (db.update(db.players)..where((p) => p.id.equals(fielderA))).write(
+        const PlayersCompanion(range: Value(95), hands: Value(95), arm: Value(95)),
+      );
+      await (db.update(db.players)..where((p) => p.id.equals(fielderB))).write(
+        const PlayersCompanion(range: Value(85), hands: Value(85), arm: Value(85)),
+      );
 
-      await refreshAiLineup(db, teamId: teamId, seasonId: seasonId);
+      await refreshAiLineup(db, teamId: teamId);
 
       final row = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
-      expect(row.pitcherRotation, '$starter');
+      expect(row.pitcherRotation.split(',').map(int.parse).toList(), [ace, secondArm]);
       expect(row.battingOrder.split(',').map(int.parse).toList(), batters);
       expect(row.fielder2Id, fielderA);
       expect(row.fielder3Id, fielderB);
@@ -118,21 +104,15 @@ void main() {
       final teamId = teamIds[1];
       final before = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
 
-      // Seed stats that would clearly change the lineup if this weren't
+      // Seed ratings that would clearly change the lineup if this weren't
       // skipped, so the no-op is actually being exercised.
       final players =
           (await (db.select(db.players)..where((p) => p.teamId.equals(teamId))).get()).map((p) => p.id).toList();
-      await db.into(db.pitchingStats).insert(PitchingStatsCompanion.insert(
-            gameId: gameId,
-            playerId: players.last,
-            teamId: teamId,
-            outsRecorded: const Value(30),
-            er: const Value(0),
-            bb: const Value(0),
-            h: const Value(0),
-          ));
+      await (db.update(db.players)..where((p) => p.id.equals(players.last))).write(
+        const PlayersCompanion(control: Value(99), stamina: Value(99)),
+      );
 
-      await refreshAiLineup(db, teamId: teamId, seasonId: seasonId);
+      await refreshAiLineup(db, teamId: teamId);
 
       final after = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
       expect(after.battingOrder, before.battingOrder);

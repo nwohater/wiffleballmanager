@@ -52,4 +52,13 @@ class SimPlayer {
     required this.hands,
     required this.arm,
   });
+
+  /// Simple rating composites — same formulas as
+  /// lib/roster/roster_generator.dart's GeneratedPlayer (a true-rating
+  /// player before persistence), used by lib/ai/lineup_ai.dart's
+  /// true-rating-visibility lineup/rotation AI. Not stored ratings
+  /// themselves, just cheap rankings.
+  double get battingScore => (contact + power + discipline) / 3;
+  double get pitchingScore => (control + stamina) / 2;
+  double get fieldingScore => (range + hands + arm) / 3;
 }

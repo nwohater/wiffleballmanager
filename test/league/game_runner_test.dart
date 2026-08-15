@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -106,18 +106,35 @@ void main() {
 
     final lineupRowAfter = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
     final battingIdsAfter = lineupRowAfter.battingOrder.split(',').map(int.parse).toList();
+    final pitcherIdsAfter = lineupRowAfter.pitcherRotation.split(',').map(int.parse).toList();
 
+    // Phase 5's smarter (true-rating) AI picks a 2-deep pitcher rotation +
+    // 4-player batting order (not the old 1 + 5) — the replacement could
+    // rank into either slot depending on their true ratings, so check
+    // presence across the whole resolved lineup rather than assuming
+    // they land specifically in the batting order.
     expect(battingIdsAfter, isNot(contains(injuredId)));
-    expect(battingIdsAfter, contains(replacementId));
-    expect(battingIdsAfter, hasLength(5));
+    expect(pitcherIdsAfter, isNot(contains(injuredId)));
+    expect([...battingIdsAfter, ...pitcherIdsAfter], contains(replacementId));
+    expect(battingIdsAfter, hasLength(4));
+    expect(pitcherIdsAfter, hasLength(2));
 
     await db.close();
   });
 
   test('resolveEffectiveLineup drops an unavailable batter, producing a shorter legal order', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final teamIds = await makeTeamsWithRosters(db, count: 1);
+    final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+    final teamIds = await makeTeamsWithRosters(db, count: 2);
     final teamId = teamIds[0];
+    final gameId = await db.into(db.games).insert(GamesCompanion.insert(
+          seasonId: seasonId,
+          tier: Tier.major,
+          homeTeamId: teamIds[0],
+          awayTeamId: teamIds[1],
+          gameNumber: 1,
+        ));
+    final game = await (db.select(db.games)..where((g) => g.id.equals(gameId))).getSingle();
     final lineupRow = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
     final battingIds = lineupRow.battingOrder.split(',').map(int.parse).toList();
     final unavailableId = battingIds.first;
@@ -126,7 +143,7 @@ void main() {
       const PlayersCompanion(gamesUnavailable: Value(2)),
     );
 
-    final resolved = await resolveEffectiveLineup(db, lineupRow);
+    final resolved = await resolveEffectiveLineup(db, lineupRow, game: game);
 
     expect(resolved.battingOrder.contains(unavailableId), isFalse);
     expect(resolved.battingOrder.length, battingIds.length - 1);
@@ -137,8 +154,17 @@ void main() {
 
   test('resolveEffectiveLineup falls through the pitcher rotation to the next available entry', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final teamIds = await makeTeamsWithRosters(db, count: 1);
+    final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+    final teamIds = await makeTeamsWithRosters(db, count: 2);
     final teamId = teamIds[0];
+    final gameId = await db.into(db.games).insert(GamesCompanion.insert(
+          seasonId: seasonId,
+          tier: Tier.major,
+          homeTeamId: teamIds[0],
+          awayTeamId: teamIds[1],
+          gameNumber: 1,
+        ));
+    final game = await (db.select(db.games)..where((g) => g.id.equals(gameId))).getSingle();
     final lineupRow = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
     final starterId = lineupRow.pitcherRotation.split(',').map(int.parse).first;
 
@@ -154,9 +180,143 @@ void main() {
 
     final updatedLineupRow =
         await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
-    final resolved = await resolveEffectiveLineup(db, updatedLineupRow);
+    final resolved = await resolveEffectiveLineup(db, updatedLineupRow, game: game);
 
-    expect(resolved.pitcherPlan.single.playerId, backupId);
+    expect(resolved.pitcherPlan.first.playerId, backupId);
+
+    await db.close();
+  });
+
+  test('resolveEffectiveLineup prefers rotation[0] for games 1 & 3 of a series, rotation[1] for game 2', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+    final teamIds = await makeTeamsWithRosters(db, count: 2);
+    final teamId = teamIds[0];
+
+    final teamPlayers = await (db.select(db.players)..where((p) => p.teamId.equals(teamId))).get();
+    final ace = teamPlayers[0].id;
+    final secondArm = teamPlayers[1].id;
+    await (db.update(db.teamLineups)..where((l) => l.teamId.equals(teamId))).write(
+      TeamLineupsCompanion(pitcherRotation: Value('$ace,$secondArm')),
+    );
+    final lineupRow = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
+
+    Future<int> starterForGame(int gameNumber) async {
+      final gameId = await db.into(db.games).insert(GamesCompanion.insert(
+            seasonId: seasonId,
+            tier: Tier.major,
+            homeTeamId: teamIds[0],
+            awayTeamId: teamIds[1],
+            gameNumber: gameNumber,
+          ));
+      final game = await (db.select(db.games)..where((g) => g.id.equals(gameId))).getSingle();
+      final resolved = await resolveEffectiveLineup(db, lineupRow, game: game);
+      return resolved.pitcherPlan.first.playerId;
+    }
+
+    expect(await starterForGame(1), ace);
+    expect(await starterForGame(2), secondArm);
+    expect(await starterForGame(3), ace);
+
+    await db.close();
+  });
+
+  test('resolveEffectiveLineup caps a pitcher at their remaining series-innings budget, handing off to the'
+      ' rotation\'s other arm', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+    final teamIds = await makeTeamsWithRosters(db, count: 2);
+    final teamId = teamIds[0];
+
+    final teamPlayers = await (db.select(db.players)..where((p) => p.teamId.equals(teamId))).get();
+    final ace = teamPlayers[0].id;
+    final secondArm = teamPlayers[1].id;
+    await (db.update(db.teamLineups)..where((l) => l.teamId.equals(teamId))).write(
+      TeamLineupsCompanion(pitcherRotation: Value('$ace,$secondArm')),
+    );
+
+    // Game 1 of the series: the ace already threw 4 innings (12 outs) —
+    // leaves only 2 innings of their 6-inning series budget for game 3.
+    final game1Id = await db.into(db.games).insert(GamesCompanion.insert(
+          seasonId: seasonId,
+          tier: Tier.major,
+          homeTeamId: teamIds[0],
+          awayTeamId: teamIds[1],
+          gameNumber: 1,
+          status: const Value(GameStatus.completed),
+        ));
+    await db.into(db.pitchingStats).insert(PitchingStatsCompanion.insert(
+          gameId: game1Id,
+          playerId: ace,
+          teamId: teamId,
+          outsRecorded: const Value(12),
+        ));
+
+    // Game 3 of the series: gameInSeries == 2, so the ace (rotation[0]) is
+    // preferred again — but only has budget for 2 more innings.
+    final game3Id = await db.into(db.games).insert(GamesCompanion.insert(
+          seasonId: seasonId,
+          tier: Tier.major,
+          homeTeamId: teamIds[0],
+          awayTeamId: teamIds[1],
+          gameNumber: 3,
+        ));
+    final game3 = await (db.select(db.games)..where((g) => g.id.equals(game3Id))).getSingle();
+    final lineupRow = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
+
+    final resolved = await resolveEffectiveLineup(db, lineupRow, game: game3);
+
+    expect(resolved.pitcherPlan.length, 2);
+    expect(resolved.pitcherPlan[0].playerId, ace);
+    expect(resolved.pitcherPlan[0].throughInning, 2);
+    expect(resolved.pitcherPlan[1].playerId, secondArm);
+    expect(resolved.pitcherPlan[1].throughInning, isNull);
+
+    await db.close();
+  });
+
+  test('resolveEffectiveLineup does not enforce the series-innings cap for playoff games', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+    final teamIds = await makeTeamsWithRosters(db, count: 2);
+    final teamId = teamIds[0];
+
+    final teamPlayers = await (db.select(db.players)..where((p) => p.teamId.equals(teamId))).get();
+    final ace = teamPlayers[0].id;
+    final secondArm = teamPlayers[1].id;
+    await (db.update(db.teamLineups)..where((l) => l.teamId.equals(teamId))).write(
+      TeamLineupsCompanion(pitcherRotation: Value('$ace,$secondArm')),
+    );
+    final lineupRow = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
+
+    final seriesId = await db.into(db.playoffSeries).insert(PlayoffSeriesCompanion.insert(
+          seasonId: seasonId,
+          round: PlayoffRound.semifinal,
+          higherSeedTeamId: teamIds[0],
+          higherSeedRank: 1,
+          lowerSeedTeamId: teamIds[1],
+          lowerSeedRank: 4,
+          bestOf: 5,
+        ));
+    final gameId = await db.into(db.games).insert(GamesCompanion.insert(
+          seasonId: seasonId,
+          tier: Tier.major,
+          homeTeamId: teamIds[0],
+          awayTeamId: teamIds[1],
+          gameNumber: 1,
+          seriesId: Value(seriesId),
+        ));
+    final game = await (db.select(db.games)..where((g) => g.id.equals(gameId))).getSingle();
+
+    final resolved = await resolveEffectiveLineup(db, lineupRow, game: game);
+
+    // Playoff series don't follow the regular season's 3-game cadence the
+    // cap's "games 1 and 3" framing assumes — unrestricted single stint,
+    // same as pre-cap behavior (see context/rules-mlw-cultz-field.md's
+    // Known Deviations note).
+    expect(resolved.pitcherPlan, hasLength(1));
+    expect(resolved.pitcherPlan.single.playerId, ace);
+    expect(resolved.pitcherPlan.single.throughInning, isNull);
 
     await db.close();
   });

@@ -4,6 +4,7 @@ import 'package:wballmgr/career/free_agents.dart';
 import 'package:wballmgr/data/database.dart';
 import 'package:wballmgr/data/enums.dart';
 import 'package:wballmgr/roster/roster_writer.dart';
+import 'package:wballmgr/roster/sim_player_loader.dart';
 
 import 'lineup_ai.dart';
 import 'observed_stats.dart';
@@ -31,25 +32,26 @@ Future<bool> _isAiControlled(AppDatabase db, int teamId) async {
 }
 
 /// Recomputes and saves an AI-controlled team's lineup/rotation from its
-/// current active roster and [seasonId]'s observed stats to date, via
-/// lib/ai/lineup_ai.dart's chooseLineup + the same saveTeamLineup write
-/// path the manual editing UI uses. No-op for the human-controlled team and
-/// for a team whose active roster doesn't have exactly 6 players (shouldn't
+/// current active roster's true ratings, via lib/ai/lineup_ai.dart's
+/// chooseLineup (Phase 5's "smarter" AI variant — see that function's doc
+/// comment for why lineup/rotation is a deliberate exception to the
+/// observed-stats-only baseline) + the same saveTeamLineup write path the
+/// manual editing UI uses. No-op for the human-controlled team and for a
+/// team whose active roster doesn't have exactly 6 players (shouldn't
 /// happen, but defensive — chooseLineup would otherwise throw).
 ///
 /// Intended to run after anything that can change an AI team's active
 /// roster (an injury/DL backfill mid-season, a roster move at rollover) so
 /// a newly-added player actually gets used instead of the saved lineup
 /// silently shrinking around them.
-Future<void> refreshAiLineup(AppDatabase db, {required int teamId, required int seasonId}) async {
+Future<void> refreshAiLineup(AppDatabase db, {required int teamId}) async {
   if (!await _isAiControlled(db, teamId)) return;
 
   final roster = await readTeamRoster(db, teamId);
   if (roster.where((m) => m.slot == RosterSlot.active).length != 6) return;
 
-  final activeIds = roster.where((m) => m.slot == RosterSlot.active).map((m) => m.playerId).toList();
-  final stats = await loadObservedStats(db, playerIds: activeIds, seasonId: seasonId);
-  final choice = chooseLineup(roster: roster, stats: stats);
+  final players = await loadSimPlayers(db, teamIds: [teamId]);
+  final choice = chooseLineup(roster: roster, players: players);
 
   await saveTeamLineup(
     db,
@@ -149,6 +151,6 @@ Future<void> runAiOffseason(AppDatabase db, {required int completedSeasonId, Ran
   final teamIds = (await db.select(db.teams).get()).map((t) => t.id).toList();
   for (final teamId in teamIds) {
     await evaluateRosterMoves(db, teamId: teamId, completedSeasonId: completedSeasonId, random: random);
-    await refreshAiLineup(db, teamId: teamId, seasonId: completedSeasonId);
+    await refreshAiLineup(db, teamId: teamId);
   }
 }
