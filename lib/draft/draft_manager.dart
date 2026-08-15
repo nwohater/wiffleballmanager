@@ -2,9 +2,9 @@ import 'dart:math';
 
 import 'package:wballmgr/data/database.dart';
 
-import 'package:wballmgr/roster/roster_generator.dart';
 import 'package:wballmgr/roster/roster_writer.dart';
 
+import 'amateur_combine.dart';
 import 'draft_order.dart';
 
 /// Number of rounds in the annual rookie draft — one pick per team per
@@ -13,10 +13,13 @@ import 'draft_order.dart';
 const int draftRounds = 2;
 
 /// Runs [seasonId]'s annual rookie draft: computes the 12-team order (see
-/// [draftOrder]), generates a fresh, average-skewed draft class
-/// ([generateDraftClass]) sized to the total pick count, and assigns one
-/// player per pick as org depth (lib/roster/roster_writer.dart's
-/// `writeDraftedPlayer`) — recording each pick in `DraftPicks` for history.
+/// [draftOrder]), runs a pre-draft scrimmage slate over a fresh prospect pool
+/// ([runAmateurCombine]) so every prospect has a stat line to be judged by,
+/// then has each pick — in order — take the best remaining prospect
+/// ([rankProspectsByValue]; stat-oriented "best player available," no
+/// true-rating scouting) and assign them as org depth
+/// (lib/roster/roster_writer.dart's `writeDraftedPlayer`) — recording each
+/// pick in `DraftPicks` for history.
 ///
 /// No-ops (returns an empty list, writes nothing) if the season's playoff
 /// bracket isn't fully decided yet — draft order depends on final playoff
@@ -45,14 +48,22 @@ Future<List<int>> runDraft(AppDatabase db, {required int seasonId, Random? rando
 
   final teamCount = oneRoundOrder.length;
   final fullOrder = [for (var r = 0; r < draftRounds; r++) ...oneRoundOrder];
-  final draftClass = generateDraftClass(random ?? Random(), count: fullOrder.length);
   final organizationIdByTeam = {for (final t in teamRows) t.id: t.organizationId};
+
+  final rng = random ?? Random();
+  final prospectPool = runAmateurCombine(rng);
+  assert(
+    prospectPool.length >= fullOrder.length,
+    'Amateur combine pool (${prospectPool.length}) must cover every draft pick (${fullOrder.length}).',
+  );
+  final remainingProspects = rankProspectsByValue(prospectPool);
 
   final playerIds = <int>[];
   for (var i = 0; i < fullOrder.length; i++) {
     final teamId = fullOrder[i];
     final organizationId = organizationIdByTeam[teamId]!;
-    final playerId = await writeDraftedPlayer(db, organizationId: organizationId, player: draftClass[i]);
+    final prospect = remainingProspects.removeAt(0); // best remaining by amateur stat value
+    final playerId = await writeDraftedPlayer(db, organizationId: organizationId, player: prospect.player);
     await db.into(db.draftPicks).insert(DraftPicksCompanion.insert(
           seasonId: seasonId,
           round: (i ~/ teamCount) + 1,

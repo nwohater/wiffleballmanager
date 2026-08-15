@@ -124,10 +124,6 @@ ObservedPlayerStats _statsFor(
     hbp += row.hbp;
     sf += row.sf;
   }
-  final obpDenominator = ab + bb + hbp + sf;
-  final obp = obpDenominator == 0 ? _neutralObp : (h + bb + hbp) / obpDenominator;
-  final totalBases = h + doubles + 2 * triples + 3 * hr;
-  final slg = ab == 0 ? _neutralSlg : totalBases / ab;
 
   var outsRecorded = 0, er = 0, pBb = 0, pH = 0;
   for (final row in pitching) {
@@ -136,16 +132,65 @@ ObservedPlayerStats _statsFor(
     pBb += row.bb;
     pH += row.h;
   }
-  // This league's ERA convention is ER x3 / IP, not the standard x9 — see
-  // lib/data/tables/pitching_stats.dart.
-  final era = outsRecorded == 0 ? _neutralEra : (er * 3) / (outsRecorded / 3);
-  final whip = outsRecorded == 0 ? _neutralWhip : (pBb + pH) / (outsRecorded / 3);
 
   var chances = 0, e = 0;
   for (final row in fielding) {
     chances += row.tc;
     e += row.e;
   }
+
+  return statsFromTotals(
+    playerId: playerId,
+    pa: pa,
+    ab: ab,
+    h: h,
+    doubles: doubles,
+    triples: triples,
+    hr: hr,
+    bb: bb,
+    hbp: hbp,
+    sf: sf,
+    outsRecorded: outsRecorded,
+    er: er,
+    pitchingBb: pBb,
+    pitchingH: pH,
+    chances: chances,
+    e: e,
+  );
+}
+
+/// Pure rate-stat derivation shared by [loadObservedStats] (sums real
+/// drift-persisted game rows) and lib/draft/amateur_combine.dart (sums
+/// in-memory scrimmage box-score lines for undrafted prospects) — the same
+/// math, just fed totals from two different sources. No drift dependency.
+ObservedPlayerStats statsFromTotals({
+  required int playerId,
+  required int pa,
+  required int ab,
+  required int h,
+  required int doubles,
+  required int triples,
+  required int hr,
+  required int bb,
+  required int hbp,
+  required int sf,
+  required int outsRecorded,
+  required int er,
+  required int pitchingBb,
+  required int pitchingH,
+  required int chances,
+  required int e,
+}) {
+  final obpDenominator = ab + bb + hbp + sf;
+  final obp = obpDenominator == 0 ? _neutralObp : (h + bb + hbp) / obpDenominator;
+  final totalBases = h + doubles + 2 * triples + 3 * hr;
+  final slg = ab == 0 ? _neutralSlg : totalBases / ab;
+
+  // This league's ERA convention is ER x3 / IP, not the standard x9 — see
+  // lib/data/tables/pitching_stats.dart.
+  final era = outsRecorded == 0 ? _neutralEra : (er * 3) / (outsRecorded / 3);
+  final whip = outsRecorded == 0 ? _neutralWhip : (pitchingBb + pitchingH) / (outsRecorded / 3);
+
   final fpct = chances == 0 ? _neutralFpct : (chances - e) / chances;
 
   return ObservedPlayerStats(
