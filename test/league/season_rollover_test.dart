@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,8 @@ import 'package:wballmgr/data/database.dart';
 import 'package:wballmgr/data/enums.dart';
 import 'package:wballmgr/league/league_seed.dart';
 import 'package:wballmgr/league/season_rollover.dart';
+import 'package:wballmgr/roster/roster_rules.dart';
+import 'package:wballmgr/roster/roster_writer.dart';
 
 void main() {
   test('rolloverSeason ends the old season and starts a fresh one', () async {
@@ -70,6 +74,45 @@ void main() {
 
     final poolAfterRollover = await (db.select(db.players)..where((p) => p.teamId.isNull())).get();
     expect(poolAfterRollover.length, freeAgentsBefore.length, reason: 'free-agent pool topped back up');
+
+    await db.close();
+  });
+
+  test(
+      'rolloverSeason runs the Phase 5 AI offseason pass — every team\'s saved lineup stays legal, '
+      'and the human team is left untouched', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final seasonId = await seedNewLeague(db);
+
+    final humanOrg =
+        await (db.select(db.organizations)..where((o) => o.isPlayerControlled.equals(true))).getSingle();
+    final humanTeam = await (db.select(db.teams)..where((t) => t.organizationId.equals(humanOrg.id))).getSingle();
+    final humanLineupBefore =
+        await (db.select(db.teamLineups)..where((l) => l.teamId.equals(humanTeam.id))).getSingle();
+
+    await rolloverSeason(db, completedSeasonId: seasonId, random: Random(3));
+
+    final humanLineupAfter =
+        await (db.select(db.teamLineups)..where((l) => l.teamId.equals(humanTeam.id))).getSingle();
+    expect(humanLineupAfter.battingOrder, humanLineupBefore.battingOrder);
+    expect(humanLineupAfter.pitcherRotation, humanLineupBefore.pitcherRotation);
+    expect(humanLineupAfter.fielder2Id, humanLineupBefore.fielder2Id);
+    expect(humanLineupAfter.fielder3Id, humanLineupBefore.fielder3Id);
+
+    // Every AI team just had its lineup regenerated off (empty, freshly
+    // rolled-over) observed stats by the offseason pass — confirm the
+    // result is still legal, not just present.
+    for (final team in await db.select(db.teams).get()) {
+      final roster = await readTeamRoster(db, team.id);
+      final lineup = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(team.id))).getSingle();
+      final battingOrder = lineup.battingOrder.split(',').map(int.parse).toList();
+      final pitcherRotation = lineup.pitcherRotation.split(',').map(int.parse).toList();
+
+      expect(validateRosterComposition(roster), isEmpty);
+      expect(validateBattingOrder(battingOrder, roster), isEmpty);
+      expect(validatePitcherRotation(pitcherRotation, battingOrder, roster), isEmpty);
+      expect(validateFielders(lineup.fielder2Id, lineup.fielder3Id, pitcherRotation, roster), isEmpty);
+    }
 
     await db.close();
   });

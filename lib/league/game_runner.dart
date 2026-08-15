@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 
+import 'package:wballmgr/ai/team_manager.dart' as ai_team_manager;
 import 'package:wballmgr/career/injuries_engine.dart' as injuries_engine;
 import 'package:wballmgr/data/database.dart';
 import 'package:wballmgr/data/enums.dart';
@@ -145,6 +146,12 @@ Future<sim.GameResult> playGame(AppDatabase db, int gameId, {Random? random}) as
   );
   await injuries_engine.decrementAvailability(db, teamId: game.homeTeamId);
   await injuries_engine.decrementAvailability(db, teamId: game.awayTeamId);
+
+  // Keeps AI teams' saved lineups resupplied after any injury/DL churn this
+  // game caused — no-op for the human-controlled team and for AI teams
+  // whose roster didn't change. See lib/ai/team_manager.dart.
+  await ai_team_manager.refreshAiLineup(db, teamId: game.homeTeamId, seasonId: game.seasonId);
+  await ai_team_manager.refreshAiLineup(db, teamId: game.awayTeamId, seasonId: game.seasonId);
 
   if (game.seriesId == null) {
     await recordGameResult(

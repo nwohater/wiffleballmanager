@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wballmgr/career/free_agents.dart';
 import 'package:wballmgr/data/database.dart';
 import 'package:wballmgr/data/enums.dart';
 import 'package:wballmgr/league/game_runner.dart';
@@ -65,6 +66,50 @@ void main() {
         ));
 
     expect(() => playGame(db, gameId), throwsStateError);
+
+    await db.close();
+  });
+
+  test('playGame keeps an AI team\'s saved lineup fully resupplied after a mid-game roster swap', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+    final teamIds = await makeTeamsWithRosters(db, count: 2);
+    final teamId = teamIds[0];
+    for (final id in teamIds) {
+      await db.into(db.standings).insert(StandingsCompanion.insert(seasonId: seasonId, teamId: id));
+    }
+
+    final lineupRowBefore = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
+    final battingIdsBefore = lineupRowBefore.battingOrder.split(',').map(int.parse).toList();
+    final injuredId = battingIdsBefore.first;
+
+    // Reproduce, directly, the exact roster shape checkForInjuries'
+    // moderate-injury path leaves behind (player moved to dl, a free agent
+    // backfilled onto the active roster) — the gap refreshAiLineup exists
+    // to close is that the saved TeamLineups row never picks the
+    // replacement up on its own.
+    await (db.update(db.players)..where((p) => p.id.equals(injuredId))).write(
+      const PlayersCompanion(rosterSlot: Value(RosterSlot.dl), gamesUnavailable: Value(5)),
+    );
+    final team = await (db.select(db.teams)..where((t) => t.id.equals(teamId))).getSingle();
+    final replacementId = await signFreeAgent(db, teamId: teamId, organizationId: team.organizationId);
+
+    final gameId = await db.into(db.games).insert(GamesCompanion.insert(
+          seasonId: seasonId,
+          tier: Tier.major,
+          homeTeamId: teamIds[0],
+          awayTeamId: teamIds[1],
+          gameNumber: 1,
+        ));
+
+    await playGame(db, gameId, random: Random(7));
+
+    final lineupRowAfter = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(teamId))).getSingle();
+    final battingIdsAfter = lineupRowAfter.battingOrder.split(',').map(int.parse).toList();
+
+    expect(battingIdsAfter, isNot(contains(injuredId)));
+    expect(battingIdsAfter, contains(replacementId));
+    expect(battingIdsAfter, hasLength(5));
 
     await db.close();
   });
