@@ -23,14 +23,15 @@ void main() {
     await tester.pumpAndSettle();
 
     final day1Games = await (db.select(db.games)..where((g) => g.gameNumber.equals(1))).get();
-    expect(day1Games, hasLength(6));
+    expect(day1Games, hasLength(12), reason: '6 major + 6 minor games share day 1');
     expect(day1Games.every((g) => g.status == GameStatus.completed), isTrue);
 
     await tester.tap(find.text('Standings'));
     await tester.pumpAndSettle();
 
     final standings = await db.select(db.standings).get();
-    expect(standings.where((s) => s.w + s.l + s.t > 0).length, 12, reason: 'every team played exactly once on day 1');
+    expect(standings.where((s) => s.w + s.l + s.t > 0).length, 24,
+        reason: 'every major and minor team played exactly once on day 1');
 
     await db.close();
   });

@@ -184,6 +184,17 @@ class _GameTile extends StatelessWidget {
     final isDone = game.status == GameStatus.completed;
     return ListTile(
       dense: true,
+      // Major and minor games share the same day-number range and are
+      // listed together under one "Day N" header (Phase 7 — see
+      // league_seed.dart's insertSeasonSchedule) — this tag is what tells
+      // the two apart on screen.
+      leading: SizedBox(
+        width: 36,
+        child: Text(
+          game.tier == Tier.major ? 'MLB' : 'AAA',
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+      ),
       title: Text('$away @ $home'),
       trailing: isDone
           ? Text('${game.awayScore}-${game.homeScore}')
@@ -215,6 +226,13 @@ class _SeriesTile extends StatelessWidget {
         ? '${series.higherSeedWins}-${series.lowerSeedWins} — ${teamNames[series.winnerTeamId]} wins'
         : '${series.higherSeedWins}-${series.lowerSeedWins}';
     return ListTile(
+      leading: SizedBox(
+        width: 36,
+        child: Text(
+          series.tier == Tier.major ? 'MLB' : 'AAA',
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+      ),
       title: Text('$roundLabel: #${series.higherSeedRank} $higher vs #${series.lowerSeedRank} $lower'),
       subtitle: Text(subtitle),
       trailing:

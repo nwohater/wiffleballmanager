@@ -27,6 +27,7 @@ PlayoffSeriesRow _series({
     PlayoffSeriesRow(
       id: id,
       seasonId: 1,
+      tier: Tier.major,
       round: round,
       higherSeedTeamId: higherSeedTeamId,
       higherSeedRank: higherSeedRank,

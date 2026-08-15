@@ -22,6 +22,13 @@ class PlayoffSeries extends Table {
 
   IntColumn get seasonId => integer().references(Seasons, #id)();
 
+  /// Major and minor tiers each run their own independent bracket (Phase 7)
+  /// — needed because [higherSeedTeamId]/[lowerSeedTeamId] alone don't
+  /// disambiguate which tier's standings this series was seeded from.
+  /// Existing rows (pre-Phase-7) default to major, which is correct — no
+  /// minor tier existed when they were written.
+  IntColumn get tier => intEnum<Tier>().withDefault(Constant(Tier.major.index))();
+
   IntColumn get round => intEnum<PlayoffRound>()();
 
   @ReferenceName('higherSeedSeries')

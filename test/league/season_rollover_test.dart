@@ -26,11 +26,11 @@ void main() {
     expect(newSeason.number, oldSeason.number + 1);
 
     final newGames = await (db.select(db.games)..where((g) => g.seasonId.equals(newSeasonId))).get();
-    expect(newGames.length, 198);
+    expect(newGames.length, 396, reason: '198 major + 198 minor games (Phase 7)');
     expect(newGames.every((g) => g.status == newGames.first.status), isTrue);
 
     final newStandings = await (db.select(db.standings)..where((s) => s.seasonId.equals(newSeasonId))).get();
-    expect(newStandings.length, 12);
+    expect(newStandings.length, 24, reason: '12 major + 12 minor teams (Phase 7)');
     expect(newStandings.every((s) => s.w == 0 && s.l == 0 && s.t == 0 && s.pf == 0 && s.pa == 0), isTrue);
 
     await db.close();
@@ -86,7 +86,12 @@ void main() {
 
     final humanOrg =
         await (db.select(db.organizations)..where((o) => o.isPlayerControlled.equals(true))).getSingle();
-    final humanTeam = await (db.select(db.teams)..where((t) => t.organizationId.equals(humanOrg.id))).getSingle();
+    final majorDivisionIds = (await (db.select(db.divisions)..where((d) => d.tier.equalsValue(Tier.major))).get())
+        .map((d) => d.id)
+        .toSet();
+    final humanTeam = await (db.select(db.teams)
+          ..where((t) => t.organizationId.equals(humanOrg.id) & t.divisionId.isIn(majorDivisionIds)))
+        .getSingle();
     final humanLineupBefore =
         await (db.select(db.teamLineups)..where((l) => l.teamId.equals(humanTeam.id))).getSingle();
 

@@ -1,5 +1,7 @@
+import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 
+import 'package:wballmgr/career/org_roster.dart' as org_roster;
 import 'package:wballmgr/data/database.dart';
 import 'package:wballmgr/data/enums.dart';
 import 'package:wballmgr/roster/roster_rules.dart';
@@ -8,18 +10,29 @@ import 'package:wballmgr/roster/roster_writer.dart';
 import '../app_scope.dart';
 
 class _LoadedRoster {
+  final int organizationId;
   final Team team;
+  final Team? otherTierTeam;
   final List<Player> players;
+  final List<Player> otherTierActivePlayers;
   final TeamLineup? lineup;
 
-  const _LoadedRoster({required this.team, required this.players, required this.lineup});
+  const _LoadedRoster({
+    required this.organizationId,
+    required this.team,
+    required this.otherTierTeam,
+    required this.players,
+    required this.otherTierActivePlayers,
+    required this.lineup,
+  });
 }
 
 List<int> _parseIds(String csv) => csv.isEmpty ? [] : csv.split(',').map(int.parse).toList();
 
-/// Manual lineup/rotation editing for the player's team (Phase 2). Shows
-/// only name/age/roster-slot — never true ratings, per the Hidden Ratings
-/// model (prd/product-requirements.md).
+/// Manual lineup/rotation editing for the player's team, plus (Phase 7)
+/// call-up/send-down between the org's major and minor rosters. Shows only
+/// name/age/roster-slot — never true ratings, per the Hidden Ratings model
+/// (prd/product-requirements.md).
 class RosterScreen extends StatefulWidget {
   const RosterScreen({super.key});
 
@@ -28,6 +41,7 @@ class RosterScreen extends StatefulWidget {
 }
 
 class _RosterScreenState extends State<RosterScreen> {
+  Tier _tier = Tier.major;
   Future<_LoadedRoster?>? _future;
 
   List<int>? _battingOrder;
@@ -36,22 +50,70 @@ class _RosterScreenState extends State<RosterScreen> {
   int? _fielder3Id;
   String? _saveError;
 
+  int? _outgoingPlayerId;
+  int? _incomingPlayerId;
+  String? _callUpError;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _future ??= _load(AppScope.of(context).db);
+    _future ??= _load(AppScope.of(context).db, _tier);
   }
 
-  Future<_LoadedRoster?> _load(AppDatabase db) async {
+  void _switchTier(Tier tier) {
+    if (tier == _tier) return;
+    setState(() {
+      _tier = tier;
+      _future = _load(AppScope.of(context).db, tier);
+      _resetEditState();
+    });
+  }
+
+  void _resetEditState() {
+    _battingOrder = null;
+    _pitcherRotation = null;
+    _fielder2Id = null;
+    _fielder3Id = null;
+    _saveError = null;
+    _outgoingPlayerId = null;
+    _incomingPlayerId = null;
+    _callUpError = null;
+  }
+
+  Future<_LoadedRoster?> _load(AppDatabase db, Tier tier) async {
     final org = await (db.select(db.organizations)..where((o) => o.isPlayerControlled.equals(true)))
         .getSingleOrNull();
     if (org == null) return null;
-    final team = await (db.select(db.teams)..where((t) => t.organizationId.equals(org.id))).getSingleOrNull();
+
+    final divisionRows = await db.select(db.divisions).get();
+    final divisionTier = {for (final d in divisionRows) d.id: d.tier};
+    final orgTeams = await (db.select(db.teams)..where((t) => t.organizationId.equals(org.id))).get();
+
+    Team? team, otherTierTeam;
+    for (final t in orgTeams) {
+      if (divisionTier[t.divisionId] == tier) team = t;
+      if (divisionTier[t.divisionId] != tier) otherTierTeam = t;
+    }
     if (team == null) return null;
-    final players = await (db.select(db.players)..where((p) => p.teamId.equals(team.id))).get();
-    final lineup =
-        await (db.select(db.teamLineups)..where((l) => l.teamId.equals(team.id))).getSingleOrNull();
-    return _LoadedRoster(team: team, players: players, lineup: lineup);
+    final resolvedTeam = team;
+
+    final players = await (db.select(db.players)..where((p) => p.teamId.equals(resolvedTeam.id))).get();
+    final lineup = await (db.select(db.teamLineups)..where((l) => l.teamId.equals(resolvedTeam.id)))
+        .getSingleOrNull();
+    final otherTierActivePlayers = otherTierTeam == null
+        ? const <Player>[]
+        : await (db.select(db.players)
+              ..where((p) => p.teamId.equals(otherTierTeam!.id) & p.rosterSlot.equalsValue(RosterSlot.active)))
+            .get();
+
+    return _LoadedRoster(
+      organizationId: org.id,
+      team: team,
+      otherTierTeam: otherTierTeam,
+      players: players,
+      otherTierActivePlayers: otherTierActivePlayers,
+      lineup: lineup,
+    );
   }
 
   void _initEditState(_LoadedRoster data) {
@@ -111,6 +173,35 @@ class _RosterScreenState extends State<RosterScreen> {
     return 'Unknown';
   }
 
+  /// Swaps [_outgoingPlayerId] (active on the currently-viewed tier's team)
+  /// with [_incomingPlayerId] (active on the other tier's team) — the
+  /// Phase 7 manual call-up/send-down primitive
+  /// (lib/career/org_roster.dart's `swapActiveAssignment`). Both saved
+  /// lineups may now legally-but-incorrectly reference a player who just
+  /// left their roster; that's surfaced by the normal "Save Lineup"
+  /// validation errors on each team's own Roster screen rather than fixed
+  /// automatically here, same as any other roster-membership change.
+  Future<void> _swap(BuildContext context, _LoadedRoster data) async {
+    if (_outgoingPlayerId == null || _incomingPlayerId == null) return;
+    try {
+      await org_roster.swapActiveAssignment(
+        AppScope.of(context).db,
+        organizationId: data.organizationId,
+        playerAId: _incomingPlayerId!,
+        playerBId: _outgoingPlayerId!,
+      );
+      if (!context.mounted) return;
+      final db = AppScope.of(context).db;
+      setState(() {
+        _future = _load(db, _tier);
+        _resetEditState();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Roster updated.')));
+    } catch (e) {
+      setState(() => _callUpError = e.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<_LoadedRoster?>(
@@ -140,6 +231,15 @@ class _RosterScreenState extends State<RosterScreen> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            SegmentedButton<Tier>(
+              segments: const [
+                ButtonSegment(value: Tier.major, label: Text('Major')),
+                ButtonSegment(value: Tier.minor, label: Text('Minor')),
+              ],
+              selected: {_tier},
+              onSelectionChanged: (selection) => _switchTier(selection.first),
+            ),
+            const SizedBox(height: 16),
             Text(data.team.name, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
             Text('Roster (${active.length} active)', style: Theme.of(context).textTheme.titleMedium),
@@ -241,7 +341,11 @@ class _RosterScreenState extends State<RosterScreen> {
               initialValue: availableFielders.any((p) => p.id == _fielder2Id) ? _fielder2Id : null,
               items: [
                 for (final p in availableFielders)
-                  DropdownMenuItem(value: p.id, child: Text('${p.firstName} ${p.lastName}')),
+                  DropdownMenuItem(
+                    key: ValueKey('fielder2Option-${p.id}'),
+                    value: p.id,
+                    child: Text('${p.firstName} ${p.lastName}'),
+                  ),
               ],
               onChanged: (id) => setState(() => _fielder2Id = id),
             ),
@@ -251,7 +355,11 @@ class _RosterScreenState extends State<RosterScreen> {
               initialValue: availableFielders.any((p) => p.id == _fielder3Id) ? _fielder3Id : null,
               items: [
                 for (final p in availableFielders)
-                  DropdownMenuItem(value: p.id, child: Text('${p.firstName} ${p.lastName}')),
+                  DropdownMenuItem(
+                    key: ValueKey('fielder3Option-${p.id}'),
+                    value: p.id,
+                    child: Text('${p.firstName} ${p.lastName}'),
+                  ),
               ],
               onChanged: (id) => setState(() => _fielder3Id = id),
             ),
@@ -265,6 +373,56 @@ class _RosterScreenState extends State<RosterScreen> {
               onPressed: () => _save(context, data),
               child: const Text('Save Lineup'),
             ),
+            if (data.otherTierTeam != null) ...[
+              const Divider(height: 32),
+              Text(
+                'Call-Up / Send-Down (${_tier == Tier.major ? "Major" : "Minor"} ↔ '
+                '${_tier == Tier.major ? "Minor" : "Major"})',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Select one active player from each roster, then swap them.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text('${data.team.name} (send down)', style: Theme.of(context).textTheme.titleSmall),
+              for (final p in active)
+                ListTile(
+                  dense: true,
+                  selected: p.id == _outgoingPlayerId,
+                  leading: Icon(
+                    p.id == _outgoingPlayerId ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  ),
+                  title: Text('${p.firstName} ${p.lastName}'),
+                  subtitle: Text('Age ${p.age}'),
+                  onTap: () => setState(() => _outgoingPlayerId = p.id),
+                ),
+              const SizedBox(height: 8),
+              Text('${data.otherTierTeam!.name} (call up)', style: Theme.of(context).textTheme.titleSmall),
+              for (final p in data.otherTierActivePlayers)
+                ListTile(
+                  dense: true,
+                  selected: p.id == _incomingPlayerId,
+                  leading: Icon(
+                    p.id == _incomingPlayerId ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  ),
+                  title: Text('${p.firstName} ${p.lastName}'),
+                  subtitle: Text('Age ${p.age}'),
+                  onTap: () => setState(() => _incomingPlayerId = p.id),
+                ),
+              const SizedBox(height: 8),
+              if (_callUpError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(_callUpError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ),
+              FilledButton(
+                onPressed:
+                    _outgoingPlayerId != null && _incomingPlayerId != null ? () => _swap(context, data) : null,
+                child: const Text('Swap'),
+              ),
+            ],
           ],
         );
       },

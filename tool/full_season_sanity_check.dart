@@ -1,8 +1,10 @@
 // ignore_for_file: avoid_print
-// Manual end-to-end sanity check for Phase 3 (League Structure): seeds a
-// real 12-team league, plays the entire regular season + playoffs via
-// simulateRestOfSeason, prints final standings and the playoff bracket
-// result, then rolls over to season 2 and confirms it starts clean.
+// Manual end-to-end sanity check for Phase 3 (League Structure), extended in
+// Phase 7 to cover the mirrored minor tier: seeds a real 12-org league (12
+// major + 12 minor teams), plays the entire regular season + both tiers'
+// playoffs via simulateRestOfSeason, prints final standings and playoff
+// bracket results for both tiers, then rolls over to season 2 and confirms
+// it starts clean.
 //
 // Deliberately outside test/ (like tool/season_sanity_check.dart from
 // Phase 1) so it doesn't run as part of the normal suite — this is a
@@ -48,31 +50,35 @@ Future<void> _run() async {
   final teamNames = {for (final t in teams) t.id: t.name};
   final divisions = await db.select(db.divisions).get();
   final standings = await (db.select(db.standings)..where((s) => s.seasonId.equals(seasonId))).get();
-
-  print('\n=== Final standings ===');
-  for (final division in divisions) {
-    print('-- ${division.name} --');
-    final teamIds = teams.where((t) => t.divisionId == division.id).map((t) => t.id).toSet();
-    final divStandings = standings.where((s) => teamIds.contains(s.teamId)).toList()..sort(compareStandings);
-    for (final s in divStandings) {
-      final games = s.w + s.l + s.t;
-      final pct = games == 0 ? 0.0 : s.w / games;
-      print('${teamNames[s.teamId]!.padRight(14)} W:${s.w} L:${s.l} T:${s.t} '
-          'Pct:${pct.toStringAsFixed(3)} PF:${s.pf} PA:${s.pa}');
-    }
-  }
-
   final allSeries = await (db.select(db.playoffSeries)..where((s) => s.seasonId.equals(seasonId))).get();
-  print('\n=== Playoff bracket ===');
-  for (final s in allSeries) {
-    final roundLabel = s.round == PlayoffRound.semifinal ? 'Semifinal' : 'Championship';
-    print('$roundLabel: #${s.higherSeedRank} ${teamNames[s.higherSeedTeamId]} vs '
-        '#${s.lowerSeedRank} ${teamNames[s.lowerSeedTeamId]} -> '
-        '${s.higherSeedWins}-${s.lowerSeedWins}, winner: ${teamNames[s.winnerTeamId]}');
-  }
 
-  final champion = await championTeamId(db, seasonId);
-  print('\nChampion: ${teamNames[champion]}');
+  for (final tier in Tier.values) {
+    print('\n======= ${tier.name.toUpperCase()} =======');
+
+    print('\n=== Final standings ===');
+    for (final division in divisions.where((d) => d.tier == tier)) {
+      print('-- ${division.name} --');
+      final teamIds = teams.where((t) => t.divisionId == division.id).map((t) => t.id).toSet();
+      final divStandings = standings.where((s) => teamIds.contains(s.teamId)).toList()..sort(compareStandings);
+      for (final s in divStandings) {
+        final games = s.w + s.l + s.t;
+        final pct = games == 0 ? 0.0 : s.w / games;
+        print('${teamNames[s.teamId]!.padRight(18)} W:${s.w} L:${s.l} T:${s.t} '
+            'Pct:${pct.toStringAsFixed(3)} PF:${s.pf} PA:${s.pa}');
+      }
+    }
+
+    print('\n=== Playoff bracket ===');
+    for (final s in allSeries.where((s) => s.tier == tier)) {
+      final roundLabel = s.round == PlayoffRound.semifinal ? 'Semifinal' : 'Championship';
+      print('$roundLabel: #${s.higherSeedRank} ${teamNames[s.higherSeedTeamId]} vs '
+          '#${s.lowerSeedRank} ${teamNames[s.lowerSeedTeamId]} -> '
+          '${s.higherSeedWins}-${s.lowerSeedWins}, winner: ${teamNames[s.winnerTeamId]}');
+    }
+
+    final champion = await championTeamId(db, seasonId, tier: tier);
+    print('\nChampion: ${teamNames[champion]}');
+  }
 
   final newSeasonId = await rolloverSeason(db, completedSeasonId: seasonId);
   final newSeason = await (db.select(db.seasons)..where((s) => s.id.equals(newSeasonId))).getSingle();

@@ -17,6 +17,13 @@ class _StandingsData {
   final List<PlayoffSeriesRow> series;
   final int? championTeamId;
 
+  /// Both tiers' championships must be decided before rolling over — see
+  /// [_StandingsScreenState._startNextSeason]'s doc comment. Tracked
+  /// independently of [championTeamId]/[series] (which are scoped to
+  /// whichever tier is currently being viewed) since Phase 7 gave majors
+  /// and minors their own independent brackets.
+  final bool bothTiersChampionDecided;
+
   const _StandingsData({
     required this.seasonId,
     required this.seasonNumber,
@@ -26,12 +33,13 @@ class _StandingsData {
     required this.standings,
     required this.series,
     required this.championTeamId,
+    required this.bothTiersChampionDecided,
   });
 }
 
 /// Division standings (sorted by the Pct > PA > PF tiebreaker) plus the
-/// playoff bracket once it's started, and a "Start Next Season" action once
-/// a champion is decided.
+/// playoff bracket once it's started, for either tier (Phase 7 toggle), and
+/// a "Start Next Season" action once *both* tiers' champions are decided.
 class StandingsScreen extends StatefulWidget {
   const StandingsScreen({super.key});
 
@@ -40,29 +48,40 @@ class StandingsScreen extends StatefulWidget {
 }
 
 class _StandingsScreenState extends State<StandingsScreen> {
+  Tier _tier = Tier.major;
   Future<_StandingsData>? _future;
   bool _busy = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _future ??= _load(AppScope.of(context).db);
+    _future ??= _load(AppScope.of(context).db, _tier);
   }
 
-  Future<_StandingsData> _load(AppDatabase db) async {
+  void _switchTier(Tier tier) {
+    if (tier == _tier) return;
+    setState(() {
+      _tier = tier;
+      _future = _load(AppScope.of(context).db, tier);
+    });
+  }
+
+  Future<_StandingsData> _load(AppDatabase db, Tier tier) async {
     final season = await (db.select(db.seasons)..where((s) => s.isActive.equals(true))).getSingle();
-    final divisions = await (db.select(db.divisions)..where((d) => d.tier.equalsValue(Tier.major))).get();
+    final allDivisions = await db.select(db.divisions).get();
+    final divisions = allDivisions.where((d) => d.tier == tier).toList();
     final teams = await db.select(db.teams).get();
     final teamNames = {for (final t in teams) t.id: t.name};
     final teamDivisionId = {for (final t in teams) t.id: t.divisionId};
     final standings = await (db.select(db.standings)..where((s) => s.seasonId.equals(season.id))).get();
-    final series = await (db.select(db.playoffSeries)..where((s) => s.seasonId.equals(season.id))).get();
+    final allSeries = await (db.select(db.playoffSeries)..where((s) => s.seasonId.equals(season.id))).get();
+    final series = allSeries.where((s) => s.tier == tier).toList();
 
-    int? championTeamId;
-    for (final s in series) {
-      if (s.round == PlayoffRound.championship) {
-        championTeamId = s.winnerTeamId;
+    int? championFor(Tier t) {
+      for (final s in allSeries) {
+        if (s.tier == t && s.round == PlayoffRound.championship) return s.winnerTeamId;
       }
+      return null;
     }
 
     return _StandingsData(
@@ -73,17 +92,22 @@ class _StandingsScreenState extends State<StandingsScreen> {
       teamDivisionId: teamDivisionId,
       standings: standings,
       series: series,
-      championTeamId: championTeamId,
+      championTeamId: championFor(tier),
+      bothTiersChampionDecided: Tier.values.every((t) => championFor(t) != null),
     );
   }
 
+  /// Rolling over ends *the whole season*, both tiers at once (see
+  /// lib/league/season_rollover.dart) — gated on both tiers' champions
+  /// being decided so starting the next season never abandons a tier's
+  /// still-in-progress playoffs.
   Future<void> _startNextSeason(_StandingsData data) async {
     setState(() => _busy = true);
     final db = AppScope.of(context).db;
     await rolloverSeason(db, completedSeasonId: data.seasonId);
     if (!mounted) return;
     setState(() {
-      _future = _load(db);
+      _future = _load(db, _tier);
       _busy = false;
     });
   }
@@ -103,6 +127,15 @@ class _StandingsScreenState extends State<StandingsScreen> {
           children: [
             Text('Season ${data.seasonNumber}', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
+            SegmentedButton<Tier>(
+              segments: const [
+                ButtonSegment(value: Tier.major, label: Text('Major')),
+                ButtonSegment(value: Tier.minor, label: Text('Minor')),
+              ],
+              selected: {_tier},
+              onSelectionChanged: (selection) => _switchTier(selection.first),
+            ),
+            const SizedBox(height: 16),
             for (final division in data.divisions) _DivisionTable(division: division, data: data),
             if (data.series.isNotEmpty) ...[
               const Divider(height: 32),
@@ -115,10 +148,18 @@ class _StandingsScreenState extends State<StandingsScreen> {
                 '${data.teamNames[data.championTeamId]} wins the championship!',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+            ],
+            if (data.bothTiersChampionDecided) ...[
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: _busy ? null : () => _startNextSeason(data),
                 child: Text(_busy ? 'Starting...' : 'Start Next Season'),
+              ),
+            ] else if (data.championTeamId != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Waiting on the other tier\'s playoffs to finish before starting next season.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ],

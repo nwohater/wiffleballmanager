@@ -265,9 +265,12 @@ Future<void> simulateDay(AppDatabase db, {required int seasonId, required int da
   }
 }
 
-/// Plays the rest of the season: remaining regular-season days in order,
-/// then the playoff bracket (starting it if needed) until a champion is
-/// decided.
+/// Plays the rest of the season: remaining regular-season days in order
+/// (major and minor share the same day-number range and are simulated
+/// together as one league-wide slate per day — see
+/// `league_seed.dart`'s `insertSeasonSchedule`), then each tier's playoff
+/// bracket (starting it if needed) until both tiers have a champion
+/// (Phase 7: majors and minors each run their own independent bracket).
 Future<void> simulateRestOfSeason(AppDatabase db, {required int seasonId}) async {
   final remainingDays = await (db.select(db.games)
         ..where((g) =>
@@ -280,18 +283,20 @@ Future<void> simulateRestOfSeason(AppDatabase db, {required int seasonId}) async
     await simulateDay(db, seasonId: seasonId, dayNumber: day);
   }
 
-  if (await championTeamId(db, seasonId) != null) return;
+  for (final tier in Tier.values) {
+    if (await championTeamId(db, seasonId, tier: tier) != null) continue;
 
-  var series = await activePlayoffSeries(db, seasonId);
-  if (series.isEmpty) {
-    await startPlayoffs(db, seasonId: seasonId);
-    series = await activePlayoffSeries(db, seasonId);
-  }
-
-  while (series.isNotEmpty) {
-    for (final s in series) {
-      await simulatePlayoffGame(db, seriesId: s.id);
+    var series = await activePlayoffSeries(db, seasonId, tier: tier);
+    if (series.isEmpty) {
+      await startPlayoffs(db, seasonId: seasonId, tier: tier);
+      series = await activePlayoffSeries(db, seasonId, tier: tier);
     }
-    series = await activePlayoffSeries(db, seasonId);
+
+    while (series.isNotEmpty) {
+      for (final s in series) {
+        await simulatePlayoffGame(db, seriesId: s.id);
+      }
+      series = await activePlayoffSeries(db, seasonId, tier: tier);
+    }
   }
 }

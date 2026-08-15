@@ -1113,6 +1113,16 @@ class $PlayoffSeriesTable extends PlayoffSeries
     ),
   );
   @override
+  late final GeneratedColumnWithTypeConverter<Tier, int> tier =
+      GeneratedColumn<int>(
+        'tier',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: Constant(Tier.major.index),
+      ).withConverter<Tier>($PlayoffSeriesTable.$convertertier);
+  @override
   late final GeneratedColumnWithTypeConverter<PlayoffRound, int> round =
       GeneratedColumn<int>(
         'round',
@@ -1222,6 +1232,7 @@ class $PlayoffSeriesTable extends PlayoffSeries
   List<GeneratedColumn> get $columns => [
     id,
     seasonId,
+    tier,
     round,
     higherSeedTeamId,
     higherSeedRank,
@@ -1351,6 +1362,12 @@ class $PlayoffSeriesTable extends PlayoffSeries
         DriftSqlType.int,
         data['${effectivePrefix}season_id'],
       )!,
+      tier: $PlayoffSeriesTable.$convertertier.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}tier'],
+        )!,
+      ),
       round: $PlayoffSeriesTable.$converterround.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
@@ -1397,6 +1414,8 @@ class $PlayoffSeriesTable extends PlayoffSeries
     return $PlayoffSeriesTable(attachedDatabase, alias);
   }
 
+  static JsonTypeConverter2<Tier, int, int> $convertertier =
+      const EnumIndexConverter<Tier>(Tier.values);
   static JsonTypeConverter2<PlayoffRound, int, int> $converterround =
       const EnumIndexConverter<PlayoffRound>(PlayoffRound.values);
 }
@@ -1405,6 +1424,13 @@ class PlayoffSeriesRow extends DataClass
     implements Insertable<PlayoffSeriesRow> {
   final int id;
   final int seasonId;
+
+  /// Major and minor tiers each run their own independent bracket (Phase 7)
+  /// — needed because [higherSeedTeamId]/[lowerSeedTeamId] alone don't
+  /// disambiguate which tier's standings this series was seeded from.
+  /// Existing rows (pre-Phase-7) default to major, which is correct — no
+  /// minor tier existed when they were written.
+  final Tier tier;
   final PlayoffRound round;
   final int higherSeedTeamId;
   final int higherSeedRank;
@@ -1421,6 +1447,7 @@ class PlayoffSeriesRow extends DataClass
   const PlayoffSeriesRow({
     required this.id,
     required this.seasonId,
+    required this.tier,
     required this.round,
     required this.higherSeedTeamId,
     required this.higherSeedRank,
@@ -1436,6 +1463,11 @@ class PlayoffSeriesRow extends DataClass
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['season_id'] = Variable<int>(seasonId);
+    {
+      map['tier'] = Variable<int>(
+        $PlayoffSeriesTable.$convertertier.toSql(tier),
+      );
+    }
     {
       map['round'] = Variable<int>(
         $PlayoffSeriesTable.$converterround.toSql(round),
@@ -1458,6 +1490,7 @@ class PlayoffSeriesRow extends DataClass
     return PlayoffSeriesCompanion(
       id: Value(id),
       seasonId: Value(seasonId),
+      tier: Value(tier),
       round: Value(round),
       higherSeedTeamId: Value(higherSeedTeamId),
       higherSeedRank: Value(higherSeedRank),
@@ -1480,6 +1513,9 @@ class PlayoffSeriesRow extends DataClass
     return PlayoffSeriesRow(
       id: serializer.fromJson<int>(json['id']),
       seasonId: serializer.fromJson<int>(json['seasonId']),
+      tier: $PlayoffSeriesTable.$convertertier.fromJson(
+        serializer.fromJson<int>(json['tier']),
+      ),
       round: $PlayoffSeriesTable.$converterround.fromJson(
         serializer.fromJson<int>(json['round']),
       ),
@@ -1499,6 +1535,9 @@ class PlayoffSeriesRow extends DataClass
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'seasonId': serializer.toJson<int>(seasonId),
+      'tier': serializer.toJson<int>(
+        $PlayoffSeriesTable.$convertertier.toJson(tier),
+      ),
       'round': serializer.toJson<int>(
         $PlayoffSeriesTable.$converterround.toJson(round),
       ),
@@ -1516,6 +1555,7 @@ class PlayoffSeriesRow extends DataClass
   PlayoffSeriesRow copyWith({
     int? id,
     int? seasonId,
+    Tier? tier,
     PlayoffRound? round,
     int? higherSeedTeamId,
     int? higherSeedRank,
@@ -1528,6 +1568,7 @@ class PlayoffSeriesRow extends DataClass
   }) => PlayoffSeriesRow(
     id: id ?? this.id,
     seasonId: seasonId ?? this.seasonId,
+    tier: tier ?? this.tier,
     round: round ?? this.round,
     higherSeedTeamId: higherSeedTeamId ?? this.higherSeedTeamId,
     higherSeedRank: higherSeedRank ?? this.higherSeedRank,
@@ -1542,6 +1583,7 @@ class PlayoffSeriesRow extends DataClass
     return PlayoffSeriesRow(
       id: data.id.present ? data.id.value : this.id,
       seasonId: data.seasonId.present ? data.seasonId.value : this.seasonId,
+      tier: data.tier.present ? data.tier.value : this.tier,
       round: data.round.present ? data.round.value : this.round,
       higherSeedTeamId: data.higherSeedTeamId.present
           ? data.higherSeedTeamId.value
@@ -1573,6 +1615,7 @@ class PlayoffSeriesRow extends DataClass
     return (StringBuffer('PlayoffSeriesRow(')
           ..write('id: $id, ')
           ..write('seasonId: $seasonId, ')
+          ..write('tier: $tier, ')
           ..write('round: $round, ')
           ..write('higherSeedTeamId: $higherSeedTeamId, ')
           ..write('higherSeedRank: $higherSeedRank, ')
@@ -1590,6 +1633,7 @@ class PlayoffSeriesRow extends DataClass
   int get hashCode => Object.hash(
     id,
     seasonId,
+    tier,
     round,
     higherSeedTeamId,
     higherSeedRank,
@@ -1606,6 +1650,7 @@ class PlayoffSeriesRow extends DataClass
       (other is PlayoffSeriesRow &&
           other.id == this.id &&
           other.seasonId == this.seasonId &&
+          other.tier == this.tier &&
           other.round == this.round &&
           other.higherSeedTeamId == this.higherSeedTeamId &&
           other.higherSeedRank == this.higherSeedRank &&
@@ -1620,6 +1665,7 @@ class PlayoffSeriesRow extends DataClass
 class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
   final Value<int> id;
   final Value<int> seasonId;
+  final Value<Tier> tier;
   final Value<PlayoffRound> round;
   final Value<int> higherSeedTeamId;
   final Value<int> higherSeedRank;
@@ -1632,6 +1678,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
   const PlayoffSeriesCompanion({
     this.id = const Value.absent(),
     this.seasonId = const Value.absent(),
+    this.tier = const Value.absent(),
     this.round = const Value.absent(),
     this.higherSeedTeamId = const Value.absent(),
     this.higherSeedRank = const Value.absent(),
@@ -1645,6 +1692,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
   PlayoffSeriesCompanion.insert({
     this.id = const Value.absent(),
     required int seasonId,
+    this.tier = const Value.absent(),
     required PlayoffRound round,
     required int higherSeedTeamId,
     required int higherSeedRank,
@@ -1664,6 +1712,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
   static Insertable<PlayoffSeriesRow> custom({
     Expression<int>? id,
     Expression<int>? seasonId,
+    Expression<int>? tier,
     Expression<int>? round,
     Expression<int>? higherSeedTeamId,
     Expression<int>? higherSeedRank,
@@ -1677,6 +1726,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (seasonId != null) 'season_id': seasonId,
+      if (tier != null) 'tier': tier,
       if (round != null) 'round': round,
       if (higherSeedTeamId != null) 'higher_seed_team_id': higherSeedTeamId,
       if (higherSeedRank != null) 'higher_seed_rank': higherSeedRank,
@@ -1692,6 +1742,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
   PlayoffSeriesCompanion copyWith({
     Value<int>? id,
     Value<int>? seasonId,
+    Value<Tier>? tier,
     Value<PlayoffRound>? round,
     Value<int>? higherSeedTeamId,
     Value<int>? higherSeedRank,
@@ -1705,6 +1756,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
     return PlayoffSeriesCompanion(
       id: id ?? this.id,
       seasonId: seasonId ?? this.seasonId,
+      tier: tier ?? this.tier,
       round: round ?? this.round,
       higherSeedTeamId: higherSeedTeamId ?? this.higherSeedTeamId,
       higherSeedRank: higherSeedRank ?? this.higherSeedRank,
@@ -1725,6 +1777,11 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
     }
     if (seasonId.present) {
       map['season_id'] = Variable<int>(seasonId.value);
+    }
+    if (tier.present) {
+      map['tier'] = Variable<int>(
+        $PlayoffSeriesTable.$convertertier.toSql(tier.value),
+      );
     }
     if (round.present) {
       map['round'] = Variable<int>(
@@ -1763,6 +1820,7 @@ class PlayoffSeriesCompanion extends UpdateCompanion<PlayoffSeriesRow> {
     return (StringBuffer('PlayoffSeriesCompanion(')
           ..write('id: $id, ')
           ..write('seasonId: $seasonId, ')
+          ..write('tier: $tier, ')
           ..write('round: $round, ')
           ..write('higherSeedTeamId: $higherSeedTeamId, ')
           ..write('higherSeedRank: $higherSeedRank, ')
@@ -11416,6 +11474,7 @@ typedef $$PlayoffSeriesTableCreateCompanionBuilder =
     PlayoffSeriesCompanion Function({
       Value<int> id,
       required int seasonId,
+      Value<Tier> tier,
       required PlayoffRound round,
       required int higherSeedTeamId,
       required int higherSeedRank,
@@ -11430,6 +11489,7 @@ typedef $$PlayoffSeriesTableUpdateCompanionBuilder =
     PlayoffSeriesCompanion Function({
       Value<int> id,
       Value<int> seasonId,
+      Value<Tier> tier,
       Value<PlayoffRound> round,
       Value<int> higherSeedTeamId,
       Value<int> higherSeedRank,
@@ -11551,6 +11611,12 @@ class $$PlayoffSeriesTableFilterComposer
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<Tier, Tier, int> get tier =>
+      $composableBuilder(
+        column: $table.tier,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnWithTypeConverterFilters<PlayoffRound, PlayoffRound, int> get round =>
       $composableBuilder(
@@ -11715,6 +11781,11 @@ class $$PlayoffSeriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get tier => $composableBuilder(
+    column: $table.tier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get round => $composableBuilder(
     column: $table.round,
     builder: (column) => ColumnOrderings(column),
@@ -11849,6 +11920,9 @@ class $$PlayoffSeriesTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<Tier, int> get tier =>
+      $composableBuilder(column: $table.tier, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<PlayoffRound, int> get round =>
       $composableBuilder(column: $table.round, builder: (column) => column);
@@ -12030,6 +12104,7 @@ class $$PlayoffSeriesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<int> seasonId = const Value.absent(),
+                Value<Tier> tier = const Value.absent(),
                 Value<PlayoffRound> round = const Value.absent(),
                 Value<int> higherSeedTeamId = const Value.absent(),
                 Value<int> higherSeedRank = const Value.absent(),
@@ -12042,6 +12117,7 @@ class $$PlayoffSeriesTableTableManager
               }) => PlayoffSeriesCompanion(
                 id: id,
                 seasonId: seasonId,
+                tier: tier,
                 round: round,
                 higherSeedTeamId: higherSeedTeamId,
                 higherSeedRank: higherSeedRank,
@@ -12056,6 +12132,7 @@ class $$PlayoffSeriesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required int seasonId,
+                Value<Tier> tier = const Value.absent(),
                 required PlayoffRound round,
                 required int higherSeedTeamId,
                 required int higherSeedRank,
@@ -12068,6 +12145,7 @@ class $$PlayoffSeriesTableTableManager
               }) => PlayoffSeriesCompanion.insert(
                 id: id,
                 seasonId: seasonId,
+                tier: tier,
                 round: round,
                 higherSeedTeamId: higherSeedTeamId,
                 higherSeedRank: higherSeedRank,

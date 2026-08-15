@@ -31,21 +31,31 @@ List<int> seedsFromStandings(List<Standing> standings, Map<int, int> teamDivisio
   return [...leaders.map((s) => s.teamId), nonLeaders.first.teamId];
 }
 
-/// Drift-coupled wrapper around [seedsFromStandings]: fetches the season's
-/// standings and each team's division, returns 4 team ids seeded 1-4.
-Future<List<int>> determinePlayoffSeeds(AppDatabase db, {required int seasonId}) async {
-  final standingsRows = await (db.select(db.standings)..where((s) => s.seasonId.equals(seasonId))).get();
-  final teamRows = await db.select(db.teams).get();
+/// Drift-coupled wrapper around [seedsFromStandings]: fetches [tier]'s
+/// standings and division data for the season, returns 4 team ids seeded
+/// 1-4. Filtering to [tier] (Phase 7) is essential, not cosmetic — major and
+/// minor divisions live in the same `Divisions`/`Standings` tables, so an
+/// unfiltered query would mix both tiers' teams into one bogus bracket.
+Future<List<int>> determinePlayoffSeeds(AppDatabase db, {required int seasonId, required Tier tier}) async {
+  final divisionRows = await (db.select(db.divisions)..where((d) => d.tier.equalsValue(tier))).get();
+  final divisionIds = divisionRows.map((d) => d.id).toSet();
+  final teamRows = await (db.select(db.teams)..where((t) => t.divisionId.isIn(divisionIds))).get();
+  final teamIds = teamRows.map((t) => t.id).toSet();
+  final standingsRows = await (db.select(db.standings)
+        ..where((s) => s.seasonId.equals(seasonId) & s.teamId.isIn(teamIds)))
+      .get();
   final teamDivisionId = {for (final t in teamRows) t.id: t.divisionId};
   return seedsFromStandings(standingsRows, teamDivisionId);
 }
 
-/// Creates the two semifinal series (seed1 v seed4, seed2 v seed3,
-/// best-of-5) from the season's final regular-season standings.
-Future<void> startPlayoffs(AppDatabase db, {required int seasonId}) async {
-  final seeds = await determinePlayoffSeeds(db, seasonId: seasonId);
+/// Creates [tier]'s two semifinal series (seed1 v seed4, seed2 v seed3,
+/// best-of-5) from the season's final regular-season standings. Major and
+/// minor tiers each get their own independent bracket (Phase 7).
+Future<void> startPlayoffs(AppDatabase db, {required int seasonId, required Tier tier}) async {
+  final seeds = await determinePlayoffSeeds(db, seasonId: seasonId, tier: tier);
   await db.into(db.playoffSeries).insert(PlayoffSeriesCompanion.insert(
         seasonId: seasonId,
+        tier: Value(tier),
         round: PlayoffRound.semifinal,
         higherSeedTeamId: seeds[0],
         higherSeedRank: 1,
@@ -55,6 +65,7 @@ Future<void> startPlayoffs(AppDatabase db, {required int seasonId}) async {
       ));
   await db.into(db.playoffSeries).insert(PlayoffSeriesCompanion.insert(
         seasonId: seasonId,
+        tier: Value(tier),
         round: PlayoffRound.semifinal,
         higherSeedTeamId: seeds[1],
         higherSeedRank: 2,
@@ -64,10 +75,10 @@ Future<void> startPlayoffs(AppDatabase db, {required int seasonId}) async {
       ));
 }
 
-/// Series without a winner decided yet, for the given season.
-Future<List<PlayoffSeriesRow>> activePlayoffSeries(AppDatabase db, int seasonId) {
+/// [tier]'s series without a winner decided yet, for the given season.
+Future<List<PlayoffSeriesRow>> activePlayoffSeries(AppDatabase db, int seasonId, {required Tier tier}) {
   return (db.select(db.playoffSeries)
-        ..where((s) => s.seasonId.equals(seasonId) & s.winnerTeamId.isNull()))
+        ..where((s) => s.seasonId.equals(seasonId) & s.tier.equalsValue(tier) & s.winnerTeamId.isNull()))
       .get();
 }
 
@@ -92,7 +103,7 @@ Future<void> simulatePlayoffGame(AppDatabase db, {required int seriesId}) async 
 
   final gameId = await db.into(db.games).insert(GamesCompanion.insert(
         seasonId: series.seasonId,
-        tier: Tier.major,
+        tier: series.tier,
         homeTeamId: series.higherSeedTeamId,
         awayTeamId: series.lowerSeedTeamId,
         gameNumber: await _nextGameNumber(db, series.seasonId),
@@ -118,16 +129,18 @@ Future<void> simulatePlayoffGame(AppDatabase db, {required int seriesId}) async 
   );
 
   if (winnerTeamId != null) {
-    await _maybeStartChampionship(db, series.seasonId);
+    await _maybeStartChampionship(db, series.seasonId, series.tier);
   }
 }
 
-/// Once both semifinals are decided, creates the championship series
-/// (best-of-7). The finalist with the better *original* seed rank hosts —
-/// not necessarily the winner of the 1v4 bracket half, since a semifinal
-/// upset can leave a worse-ranked team standing on that side.
-Future<void> _maybeStartChampionship(AppDatabase db, int seasonId) async {
-  final allSeries = await (db.select(db.playoffSeries)..where((s) => s.seasonId.equals(seasonId))).get();
+/// Once both of [tier]'s semifinals are decided, creates its championship
+/// series (best-of-7). The finalist with the better *original* seed rank
+/// hosts — not necessarily the winner of the 1v4 bracket half, since a
+/// semifinal upset can leave a worse-ranked team standing on that side.
+Future<void> _maybeStartChampionship(AppDatabase db, int seasonId, Tier tier) async {
+  final allSeries = await (db.select(db.playoffSeries)
+        ..where((s) => s.seasonId.equals(seasonId) & s.tier.equalsValue(tier)))
+      .get();
   final semifinals = allSeries.where((s) => s.round == PlayoffRound.semifinal).toList();
   if (semifinals.length != 2 || semifinals.any((s) => s.winnerTeamId == null)) return;
   if (allSeries.any((s) => s.round == PlayoffRound.championship)) return;
@@ -141,6 +154,7 @@ Future<void> _maybeStartChampionship(AppDatabase db, int seasonId) async {
 
   await db.into(db.playoffSeries).insert(PlayoffSeriesCompanion.insert(
         seasonId: seasonId,
+        tier: Value(tier),
         round: PlayoffRound.championship,
         higherSeedTeamId: finalists[0].teamId,
         higherSeedRank: finalists[0].rank,
@@ -150,11 +164,14 @@ Future<void> _maybeStartChampionship(AppDatabase db, int seasonId) async {
       ));
 }
 
-/// The champion of [seasonId]'s playoffs, or null if the championship
-/// series hasn't been decided (or started) yet.
-Future<int?> championTeamId(AppDatabase db, int seasonId) async {
+/// The champion of [seasonId]'s [tier] playoffs, or null if that tier's
+/// championship series hasn't been decided (or started) yet.
+Future<int?> championTeamId(AppDatabase db, int seasonId, {required Tier tier}) async {
   final championship = await (db.select(db.playoffSeries)
-        ..where((s) => s.seasonId.equals(seasonId) & s.round.equalsValue(PlayoffRound.championship)))
+        ..where((s) =>
+            s.seasonId.equals(seasonId) &
+            s.tier.equalsValue(tier) &
+            s.round.equalsValue(PlayoffRound.championship)))
       .getSingleOrNull();
   return championship?.winnerTeamId;
 }

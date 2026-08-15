@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -126,7 +127,68 @@ void main() {
     test('championTeamId is null until the championship is decided', () async {
       final db = AppDatabase.forTesting(NativeDatabase.memory());
       final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
-      expect(await championTeamId(db, seasonId), isNull);
+      expect(await championTeamId(db, seasonId, tier: Tier.major), isNull);
+      await db.close();
+    });
+
+    test('major and minor brackets are seeded, started, and decided independently (Phase 7)', () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final seasonId = await db.into(db.seasons).insert(SeasonsCompanion.insert(number: 1));
+
+      // seedsFromStandings needs the real shape (3 division leaders + 1
+      // wildcard) to produce 4 seeds — 3 divisions sized 2/1/1 (4 teams
+      // total) reproduces that shape at a manageable test scale.
+      Future<List<int>> makeDivisions(Tier tier, List<int> teamIds) async {
+        final sizes = [2, 1, 1];
+        var i = 0;
+        for (final size in sizes) {
+          final divisionId =
+              await db.into(db.divisions).insert(DivisionsCompanion.insert(name: 'D$i', tier: tier));
+          for (var n = 0; n < size; n++) {
+            await (db.update(db.teams)..where((t) => t.id.equals(teamIds[i]))).write(
+              TeamsCompanion(divisionId: Value(divisionId)),
+            );
+            i++;
+          }
+        }
+        return teamIds;
+      }
+
+      final majorTeamIds = await makeDivisions(Tier.major, await makeTeamsWithRosters(db, count: 4, seed: 1));
+      final minorTeamIds = await makeDivisions(Tier.minor, await makeTeamsWithRosters(db, count: 4, seed: 2));
+      for (final id in [...majorTeamIds, ...minorTeamIds]) {
+        await db.into(db.standings).insert(StandingsCompanion.insert(seasonId: seasonId, teamId: id));
+      }
+
+      await startPlayoffs(db, seasonId: seasonId, tier: Tier.major);
+
+      // Only the major bracket exists so far.
+      expect(await activePlayoffSeries(db, seasonId, tier: Tier.major), hasLength(2));
+      expect(await activePlayoffSeries(db, seasonId, tier: Tier.minor), isEmpty);
+
+      final majorSeeds = await determinePlayoffSeeds(db, seasonId: seasonId, tier: Tier.major);
+      expect(majorSeeds.toSet(), majorTeamIds.toSet(), reason: 'major seeding never pulls in a minor team');
+
+      await startPlayoffs(db, seasonId: seasonId, tier: Tier.minor);
+      final minorSeeds = await determinePlayoffSeeds(db, seasonId: seasonId, tier: Tier.minor);
+      expect(minorSeeds.toSet(), minorTeamIds.toSet(), reason: 'minor seeding never pulls in a major team');
+
+      // Decide the major bracket only; minor stays untouched.
+      var series = await activePlayoffSeries(db, seasonId, tier: Tier.major);
+      while (series.isNotEmpty) {
+        for (final s in series) {
+          await _decideSeries(db, s.id);
+        }
+        series = await activePlayoffSeries(db, seasonId, tier: Tier.major);
+      }
+
+      expect(await championTeamId(db, seasonId, tier: Tier.major), isNotNull);
+      expect(await championTeamId(db, seasonId, tier: Tier.minor), isNull,
+          reason: 'minor bracket has not been played out — deciding majors must not affect it');
+
+      final majorChampion = await championTeamId(db, seasonId, tier: Tier.major);
+      expect(majorTeamIds, contains(majorChampion));
+
       await db.close();
     });
   });

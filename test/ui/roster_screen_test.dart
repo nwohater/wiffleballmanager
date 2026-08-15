@@ -1,8 +1,10 @@
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wballmgr/data/database.dart';
+import 'package:wballmgr/data/enums.dart';
 import 'package:wballmgr/league/league_seed.dart';
 import 'package:wballmgr/main.dart';
 
@@ -22,8 +24,12 @@ void main() {
 
     final playerOrg =
         await (db.select(db.organizations)..where((o) => o.isPlayerControlled.equals(true))).getSingle();
-    final playerTeam =
-        await (db.select(db.teams)..where((t) => t.organizationId.equals(playerOrg.id))).getSingle();
+    final majorDivisionIds = (await (db.select(db.divisions)..where((d) => d.tier.equalsValue(Tier.major))).get())
+        .map((d) => d.id)
+        .toSet();
+    final playerTeam = await (db.select(db.teams)
+          ..where((t) => t.organizationId.equals(playerOrg.id) & t.divisionId.isIn(majorDivisionIds)))
+        .getSingle();
 
     final before =
         await (db.select(db.teamLineups)..where((l) => l.teamId.equals(playerTeam.id))).getSingle();
@@ -59,7 +65,7 @@ void main() {
     // Swap Fielder 2 to a different active player.
     await tester.tap(find.byKey(const ValueKey('fielder2Dropdown')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('${newFielder2.firstName} ${newFielder2.lastName}').last);
+    await tester.tap(find.byKey(ValueKey('fielder2Option-${newFielder2.id}')).last);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Save Lineup'));
