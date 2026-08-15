@@ -8270,6 +8270,418 @@ class InjuriesCompanion extends UpdateCompanion<Injury> {
   }
 }
 
+class $DraftPicksTable extends DraftPicks
+    with TableInfo<$DraftPicksTable, DraftPick> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DraftPicksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _seasonIdMeta = const VerificationMeta(
+    'seasonId',
+  );
+  @override
+  late final GeneratedColumn<int> seasonId = GeneratedColumn<int>(
+    'season_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES seasons (id)',
+    ),
+  );
+  static const VerificationMeta _roundMeta = const VerificationMeta('round');
+  @override
+  late final GeneratedColumn<int> round = GeneratedColumn<int>(
+    'round',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _overallPickMeta = const VerificationMeta(
+    'overallPick',
+  );
+  @override
+  late final GeneratedColumn<int> overallPick = GeneratedColumn<int>(
+    'overall_pick',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
+  @override
+  late final GeneratedColumn<int> teamId = GeneratedColumn<int>(
+    'team_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES teams (id)',
+    ),
+  );
+  static const VerificationMeta _playerIdMeta = const VerificationMeta(
+    'playerId',
+  );
+  @override
+  late final GeneratedColumn<int> playerId = GeneratedColumn<int>(
+    'player_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    seasonId,
+    round,
+    overallPick,
+    teamId,
+    playerId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'draft_picks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DraftPick> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('season_id')) {
+      context.handle(
+        _seasonIdMeta,
+        seasonId.isAcceptableOrUnknown(data['season_id']!, _seasonIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seasonIdMeta);
+    }
+    if (data.containsKey('round')) {
+      context.handle(
+        _roundMeta,
+        round.isAcceptableOrUnknown(data['round']!, _roundMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roundMeta);
+    }
+    if (data.containsKey('overall_pick')) {
+      context.handle(
+        _overallPickMeta,
+        overallPick.isAcceptableOrUnknown(
+          data['overall_pick']!,
+          _overallPickMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_overallPickMeta);
+    }
+    if (data.containsKey('team_id')) {
+      context.handle(
+        _teamIdMeta,
+        teamId.isAcceptableOrUnknown(data['team_id']!, _teamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_teamIdMeta);
+    }
+    if (data.containsKey('player_id')) {
+      context.handle(
+        _playerIdMeta,
+        playerId.isAcceptableOrUnknown(data['player_id']!, _playerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playerIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DraftPick map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DraftPick(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      seasonId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}season_id'],
+      )!,
+      round: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}round'],
+      )!,
+      overallPick: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}overall_pick'],
+      )!,
+      teamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}team_id'],
+      )!,
+      playerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}player_id'],
+      )!,
+    );
+  }
+
+  @override
+  $DraftPicksTable createAlias(String alias) {
+    return $DraftPicksTable(attachedDatabase, alias);
+  }
+}
+
+class DraftPick extends DataClass implements Insertable<DraftPick> {
+  final int id;
+  final int seasonId;
+  final int round;
+
+  /// 1-indexed pick number across the whole draft (not just within a round).
+  final int overallPick;
+  final int teamId;
+  final int playerId;
+  const DraftPick({
+    required this.id,
+    required this.seasonId,
+    required this.round,
+    required this.overallPick,
+    required this.teamId,
+    required this.playerId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['season_id'] = Variable<int>(seasonId);
+    map['round'] = Variable<int>(round);
+    map['overall_pick'] = Variable<int>(overallPick);
+    map['team_id'] = Variable<int>(teamId);
+    map['player_id'] = Variable<int>(playerId);
+    return map;
+  }
+
+  DraftPicksCompanion toCompanion(bool nullToAbsent) {
+    return DraftPicksCompanion(
+      id: Value(id),
+      seasonId: Value(seasonId),
+      round: Value(round),
+      overallPick: Value(overallPick),
+      teamId: Value(teamId),
+      playerId: Value(playerId),
+    );
+  }
+
+  factory DraftPick.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DraftPick(
+      id: serializer.fromJson<int>(json['id']),
+      seasonId: serializer.fromJson<int>(json['seasonId']),
+      round: serializer.fromJson<int>(json['round']),
+      overallPick: serializer.fromJson<int>(json['overallPick']),
+      teamId: serializer.fromJson<int>(json['teamId']),
+      playerId: serializer.fromJson<int>(json['playerId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'seasonId': serializer.toJson<int>(seasonId),
+      'round': serializer.toJson<int>(round),
+      'overallPick': serializer.toJson<int>(overallPick),
+      'teamId': serializer.toJson<int>(teamId),
+      'playerId': serializer.toJson<int>(playerId),
+    };
+  }
+
+  DraftPick copyWith({
+    int? id,
+    int? seasonId,
+    int? round,
+    int? overallPick,
+    int? teamId,
+    int? playerId,
+  }) => DraftPick(
+    id: id ?? this.id,
+    seasonId: seasonId ?? this.seasonId,
+    round: round ?? this.round,
+    overallPick: overallPick ?? this.overallPick,
+    teamId: teamId ?? this.teamId,
+    playerId: playerId ?? this.playerId,
+  );
+  DraftPick copyWithCompanion(DraftPicksCompanion data) {
+    return DraftPick(
+      id: data.id.present ? data.id.value : this.id,
+      seasonId: data.seasonId.present ? data.seasonId.value : this.seasonId,
+      round: data.round.present ? data.round.value : this.round,
+      overallPick: data.overallPick.present
+          ? data.overallPick.value
+          : this.overallPick,
+      teamId: data.teamId.present ? data.teamId.value : this.teamId,
+      playerId: data.playerId.present ? data.playerId.value : this.playerId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DraftPick(')
+          ..write('id: $id, ')
+          ..write('seasonId: $seasonId, ')
+          ..write('round: $round, ')
+          ..write('overallPick: $overallPick, ')
+          ..write('teamId: $teamId, ')
+          ..write('playerId: $playerId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, seasonId, round, overallPick, teamId, playerId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DraftPick &&
+          other.id == this.id &&
+          other.seasonId == this.seasonId &&
+          other.round == this.round &&
+          other.overallPick == this.overallPick &&
+          other.teamId == this.teamId &&
+          other.playerId == this.playerId);
+}
+
+class DraftPicksCompanion extends UpdateCompanion<DraftPick> {
+  final Value<int> id;
+  final Value<int> seasonId;
+  final Value<int> round;
+  final Value<int> overallPick;
+  final Value<int> teamId;
+  final Value<int> playerId;
+  const DraftPicksCompanion({
+    this.id = const Value.absent(),
+    this.seasonId = const Value.absent(),
+    this.round = const Value.absent(),
+    this.overallPick = const Value.absent(),
+    this.teamId = const Value.absent(),
+    this.playerId = const Value.absent(),
+  });
+  DraftPicksCompanion.insert({
+    this.id = const Value.absent(),
+    required int seasonId,
+    required int round,
+    required int overallPick,
+    required int teamId,
+    required int playerId,
+  }) : seasonId = Value(seasonId),
+       round = Value(round),
+       overallPick = Value(overallPick),
+       teamId = Value(teamId),
+       playerId = Value(playerId);
+  static Insertable<DraftPick> custom({
+    Expression<int>? id,
+    Expression<int>? seasonId,
+    Expression<int>? round,
+    Expression<int>? overallPick,
+    Expression<int>? teamId,
+    Expression<int>? playerId,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (seasonId != null) 'season_id': seasonId,
+      if (round != null) 'round': round,
+      if (overallPick != null) 'overall_pick': overallPick,
+      if (teamId != null) 'team_id': teamId,
+      if (playerId != null) 'player_id': playerId,
+    });
+  }
+
+  DraftPicksCompanion copyWith({
+    Value<int>? id,
+    Value<int>? seasonId,
+    Value<int>? round,
+    Value<int>? overallPick,
+    Value<int>? teamId,
+    Value<int>? playerId,
+  }) {
+    return DraftPicksCompanion(
+      id: id ?? this.id,
+      seasonId: seasonId ?? this.seasonId,
+      round: round ?? this.round,
+      overallPick: overallPick ?? this.overallPick,
+      teamId: teamId ?? this.teamId,
+      playerId: playerId ?? this.playerId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (seasonId.present) {
+      map['season_id'] = Variable<int>(seasonId.value);
+    }
+    if (round.present) {
+      map['round'] = Variable<int>(round.value);
+    }
+    if (overallPick.present) {
+      map['overall_pick'] = Variable<int>(overallPick.value);
+    }
+    if (teamId.present) {
+      map['team_id'] = Variable<int>(teamId.value);
+    }
+    if (playerId.present) {
+      map['player_id'] = Variable<int>(playerId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DraftPicksCompanion(')
+          ..write('id: $id, ')
+          ..write('seasonId: $seasonId, ')
+          ..write('round: $round, ')
+          ..write('overallPick: $overallPick, ')
+          ..write('teamId: $teamId, ')
+          ..write('playerId: $playerId')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8287,6 +8699,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $StandingsTable standings = $StandingsTable(this);
   late final $TeamLineupsTable teamLineups = $TeamLineupsTable(this);
   late final $InjuriesTable injuries = $InjuriesTable(this);
+  late final $DraftPicksTable draftPicks = $DraftPicksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8306,6 +8719,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     standings,
     teamLineups,
     injuries,
+    draftPicks,
   ];
 }
 
@@ -9158,6 +9572,24 @@ final class $$TeamsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$DraftPicksTable, List<DraftPick>>
+  _draftPicksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.draftPicks,
+    aliasName: 'teams__id__draft_picks__team_id',
+  );
+
+  $$DraftPicksTableProcessedTableManager get draftPicksRefs {
+    final manager = $$DraftPicksTableTableManager(
+      $_db,
+      $_db.draftPicks,
+    ).filter((f) => f.teamId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_draftPicksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TeamsTableFilterComposer extends Composer<_$AppDatabase, $TeamsTable> {
@@ -9490,6 +9922,31 @@ class $$TeamsTableFilterComposer extends Composer<_$AppDatabase, $TeamsTable> {
           }) => $$TeamLineupsTableFilterComposer(
             $db: $db,
             $table: $db.teamLineups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> draftPicksRefs(
+    Expression<bool> Function($$DraftPicksTableFilterComposer f) f,
+  ) {
+    final $$DraftPicksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.draftPicks,
+      getReferencedColumn: (t) => t.teamId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DraftPicksTableFilterComposer(
+            $db: $db,
+            $table: $db.draftPicks,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -9901,6 +10358,31 @@ class $$TeamsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> draftPicksRefs<T extends Object>(
+    Expression<T> Function($$DraftPicksTableAnnotationComposer a) f,
+  ) {
+    final $$DraftPicksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.draftPicks,
+      getReferencedColumn: (t) => t.teamId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DraftPicksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.draftPicks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TeamsTableTableManager
@@ -9930,6 +10412,7 @@ class $$TeamsTableTableManager
             bool fieldingStatsRefs,
             bool standingsRefs,
             bool teamLineupsRefs,
+            bool draftPicksRefs,
           })
         > {
   $$TeamsTableTableManager(_$AppDatabase db, $TeamsTable table)
@@ -9988,6 +10471,7 @@ class $$TeamsTableTableManager
                 fieldingStatsRefs = false,
                 standingsRefs = false,
                 teamLineupsRefs = false,
+                draftPicksRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -10003,6 +10487,7 @@ class $$TeamsTableTableManager
                     if (fieldingStatsRefs) db.fieldingStats,
                     if (standingsRefs) db.standings,
                     if (teamLineupsRefs) db.teamLineups,
+                    if (draftPicksRefs) db.draftPicks,
                   ],
                   addJoins:
                       <
@@ -10246,6 +10731,23 @@ class $$TeamsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (draftPicksRefs)
+                        await $_getPrefetchedData<Team, $TeamsTable, DraftPick>(
+                          currentTable: table,
+                          referencedTable: $$TeamsTableReferences
+                              ._draftPicksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TeamsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).draftPicksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.teamId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -10280,6 +10782,7 @@ typedef $$TeamsTableProcessedTableManager =
         bool fieldingStatsRefs,
         bool standingsRefs,
         bool teamLineupsRefs,
+        bool draftPicksRefs,
       })
     >;
 typedef $$SeasonsTableCreateCompanionBuilder = SeasonsCompanion Function({
@@ -10366,6 +10869,24 @@ final class $$SeasonsTableReferences
     ).filter((f) => f.seasonId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_injuriesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$DraftPicksTable, List<DraftPick>>
+  _draftPicksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.draftPicks,
+    aliasName: 'seasons__id__draft_picks__season_id',
+  );
+
+  $$DraftPicksTableProcessedTableManager get draftPicksRefs {
+    final manager = $$DraftPicksTableTableManager(
+      $_db,
+      $_db.draftPicks,
+    ).filter((f) => f.seasonId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_draftPicksRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -10487,6 +11008,31 @@ class $$SeasonsTableFilterComposer
           }) => $$InjuriesTableFilterComposer(
             $db: $db,
             $table: $db.injuries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> draftPicksRefs(
+    Expression<bool> Function($$DraftPicksTableFilterComposer f) f,
+  ) {
+    final $$DraftPicksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.draftPicks,
+      getReferencedColumn: (t) => t.seasonId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DraftPicksTableFilterComposer(
+            $db: $db,
+            $table: $db.draftPicks,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -10639,6 +11185,31 @@ class $$SeasonsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> draftPicksRefs<T extends Object>(
+    Expression<T> Function($$DraftPicksTableAnnotationComposer a) f,
+  ) {
+    final $$DraftPicksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.draftPicks,
+      getReferencedColumn: (t) => t.seasonId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DraftPicksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.draftPicks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SeasonsTableTableManager
@@ -10659,6 +11230,7 @@ class $$SeasonsTableTableManager
             bool gamesRefs,
             bool standingsRefs,
             bool injuriesRefs,
+            bool draftPicksRefs,
           })
         > {
   $$SeasonsTableTableManager(_$AppDatabase db, $SeasonsTable table)
@@ -10701,6 +11273,7 @@ class $$SeasonsTableTableManager
                 gamesRefs = false,
                 standingsRefs = false,
                 injuriesRefs = false,
+                draftPicksRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -10709,6 +11282,7 @@ class $$SeasonsTableTableManager
                     if (gamesRefs) db.games,
                     if (standingsRefs) db.standings,
                     if (injuriesRefs) db.injuries,
+                    if (draftPicksRefs) db.draftPicks,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -10789,6 +11363,27 @@ class $$SeasonsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (draftPicksRefs)
+                        await $_getPrefetchedData<
+                          Season,
+                          $SeasonsTable,
+                          DraftPick
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SeasonsTableReferences
+                              ._draftPicksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SeasonsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).draftPicksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.seasonId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -10814,6 +11409,7 @@ typedef $$SeasonsTableProcessedTableManager =
         bool gamesRefs,
         bool standingsRefs,
         bool injuriesRefs,
+        bool draftPicksRefs,
       })
     >;
 typedef $$PlayoffSeriesTableCreateCompanionBuilder =
@@ -12907,6 +13503,24 @@ final class $$PlayersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$DraftPicksTable, List<DraftPick>>
+  _draftPicksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.draftPicks,
+    aliasName: 'players__id__draft_picks__player_id',
+  );
+
+  $$DraftPicksTableProcessedTableManager get draftPicksRefs {
+    final manager = $$DraftPicksTableTableManager(
+      $_db,
+      $_db.draftPicks,
+    ).filter((f) => f.playerId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_draftPicksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$PlayersTableFilterComposer
@@ -13251,6 +13865,31 @@ class $$PlayersTableFilterComposer
           }) => $$InjuriesTableFilterComposer(
             $db: $db,
             $table: $db.injuries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> draftPicksRefs(
+    Expression<bool> Function($$DraftPicksTableFilterComposer f) f,
+  ) {
+    final $$DraftPicksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.draftPicks,
+      getReferencedColumn: (t) => t.playerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DraftPicksTableFilterComposer(
+            $db: $db,
+            $table: $db.draftPicks,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -13738,6 +14377,31 @@ class $$PlayersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> draftPicksRefs<T extends Object>(
+    Expression<T> Function($$DraftPicksTableAnnotationComposer a) f,
+  ) {
+    final $$DraftPicksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.draftPicks,
+      getReferencedColumn: (t) => t.playerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DraftPicksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.draftPicks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PlayersTableTableManager
@@ -13764,6 +14428,7 @@ class $$PlayersTableTableManager
             bool fielder3Lineups,
             bool injuries,
             bool injuryReplacements,
+            bool draftPicksRefs,
           })
         > {
   $$PlayersTableTableManager(_$AppDatabase db, $PlayersTable table)
@@ -13889,6 +14554,7 @@ class $$PlayersTableTableManager
                 fielder3Lineups = false,
                 injuries = false,
                 injuryReplacements = false,
+                draftPicksRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -13901,6 +14567,7 @@ class $$PlayersTableTableManager
                     if (fielder3Lineups) db.teamLineups,
                     if (injuries) db.injuries,
                     if (injuryReplacements) db.injuries,
+                    if (draftPicksRefs) db.draftPicks,
                   ],
                   addJoins:
                       <
@@ -14109,6 +14776,27 @@ class $$PlayersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (draftPicksRefs)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          DraftPick
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._draftPicksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).draftPicksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.playerId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -14140,6 +14828,7 @@ typedef $$PlayersTableProcessedTableManager =
         bool fielder3Lineups,
         bool injuries,
         bool injuryReplacements,
+        bool draftPicksRefs,
       })
     >;
 typedef $$PlayerPitchesTableCreateCompanionBuilder =
@@ -18288,6 +18977,503 @@ typedef $$InjuriesTableProcessedTableManager =
         bool replacementPlayerId,
       })
     >;
+typedef $$DraftPicksTableCreateCompanionBuilder = DraftPicksCompanion Function({
+  Value<int> id,
+  required int seasonId,
+  required int round,
+  required int overallPick,
+  required int teamId,
+  required int playerId,
+});
+typedef $$DraftPicksTableUpdateCompanionBuilder = DraftPicksCompanion Function({
+  Value<int> id,
+  Value<int> seasonId,
+  Value<int> round,
+  Value<int> overallPick,
+  Value<int> teamId,
+  Value<int> playerId,
+});
+
+final class $$DraftPicksTableReferences
+    extends BaseReferences<_$AppDatabase, $DraftPicksTable, DraftPick> {
+  $$DraftPicksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SeasonsTable _seasonIdTable(_$AppDatabase db) =>
+      db.seasons.createAlias('draft_picks__season_id__seasons__id');
+
+  $$SeasonsTableProcessedTableManager get seasonId {
+    final $_column = $_itemColumn<int>('season_id')!;
+
+    final manager = $$SeasonsTableTableManager(
+      $_db,
+      $_db.seasons,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_seasonIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $TeamsTable _teamIdTable(_$AppDatabase db) =>
+      db.teams.createAlias('draft_picks__team_id__teams__id');
+
+  $$TeamsTableProcessedTableManager get teamId {
+    final $_column = $_itemColumn<int>('team_id')!;
+
+    final manager = $$TeamsTableTableManager(
+      $_db,
+      $_db.teams,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_teamIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _playerIdTable(_$AppDatabase db) =>
+      db.players.createAlias('draft_picks__player_id__players__id');
+
+  $$PlayersTableProcessedTableManager get playerId {
+    final $_column = $_itemColumn<int>('player_id')!;
+
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_playerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$DraftPicksTableFilterComposer
+    extends Composer<_$AppDatabase, $DraftPicksTable> {
+  $$DraftPicksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get round => $composableBuilder(
+    column: $table.round,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get overallPick => $composableBuilder(
+    column: $table.overallPick,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SeasonsTableFilterComposer get seasonId {
+    final $$SeasonsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.seasonId,
+      referencedTable: $db.seasons,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SeasonsTableFilterComposer(
+            $db: $db,
+            $table: $db.seasons,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TeamsTableFilterComposer get teamId {
+    final $$TeamsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.teamId,
+      referencedTable: $db.teams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TeamsTableFilterComposer(
+            $db: $db,
+            $table: $db.teams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get playerId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DraftPicksTableOrderingComposer
+    extends Composer<_$AppDatabase, $DraftPicksTable> {
+  $$DraftPicksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get round => $composableBuilder(
+    column: $table.round,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get overallPick => $composableBuilder(
+    column: $table.overallPick,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SeasonsTableOrderingComposer get seasonId {
+    final $$SeasonsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.seasonId,
+      referencedTable: $db.seasons,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SeasonsTableOrderingComposer(
+            $db: $db,
+            $table: $db.seasons,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TeamsTableOrderingComposer get teamId {
+    final $$TeamsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.teamId,
+      referencedTable: $db.teams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TeamsTableOrderingComposer(
+            $db: $db,
+            $table: $db.teams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get playerId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DraftPicksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DraftPicksTable> {
+  $$DraftPicksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get round =>
+      $composableBuilder(column: $table.round, builder: (column) => column);
+
+  GeneratedColumn<int> get overallPick => $composableBuilder(
+    column: $table.overallPick,
+    builder: (column) => column,
+  );
+
+  $$SeasonsTableAnnotationComposer get seasonId {
+    final $$SeasonsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.seasonId,
+      referencedTable: $db.seasons,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SeasonsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.seasons,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TeamsTableAnnotationComposer get teamId {
+    final $$TeamsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.teamId,
+      referencedTable: $db.teams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TeamsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.teams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get playerId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playerId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DraftPicksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DraftPicksTable,
+          DraftPick,
+          $$DraftPicksTableFilterComposer,
+          $$DraftPicksTableOrderingComposer,
+          $$DraftPicksTableAnnotationComposer,
+          $$DraftPicksTableCreateCompanionBuilder,
+          $$DraftPicksTableUpdateCompanionBuilder,
+          (DraftPick, $$DraftPicksTableReferences),
+          DraftPick,
+          PrefetchHooks Function({bool seasonId, bool teamId, bool playerId})
+        > {
+  $$DraftPicksTableTableManager(_$AppDatabase db, $DraftPicksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DraftPicksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DraftPicksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DraftPicksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> seasonId = const Value.absent(),
+                Value<int> round = const Value.absent(),
+                Value<int> overallPick = const Value.absent(),
+                Value<int> teamId = const Value.absent(),
+                Value<int> playerId = const Value.absent(),
+              }) => DraftPicksCompanion(
+                id: id,
+                seasonId: seasonId,
+                round: round,
+                overallPick: overallPick,
+                teamId: teamId,
+                playerId: playerId,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int seasonId,
+                required int round,
+                required int overallPick,
+                required int teamId,
+                required int playerId,
+              }) => DraftPicksCompanion.insert(
+                id: id,
+                seasonId: seasonId,
+                round: round,
+                overallPick: overallPick,
+                teamId: teamId,
+                playerId: playerId,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$DraftPicksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({seasonId = false, teamId = false, playerId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (seasonId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.seasonId,
+                            referencedTable: $$DraftPicksTableReferences
+                                ._seasonIdTable(db),
+                            referencedColumn: $$DraftPicksTableReferences
+                                ._seasonIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (teamId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.teamId,
+                            referencedTable: $$DraftPicksTableReferences
+                                ._teamIdTable(db),
+                            referencedColumn: $$DraftPicksTableReferences
+                                ._teamIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (playerId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.playerId,
+                            referencedTable: $$DraftPicksTableReferences
+                                ._playerIdTable(db),
+                            referencedColumn: $$DraftPicksTableReferences
+                                ._playerIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$DraftPicksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DraftPicksTable,
+      DraftPick,
+      $$DraftPicksTableFilterComposer,
+      $$DraftPicksTableOrderingComposer,
+      $$DraftPicksTableAnnotationComposer,
+      $$DraftPicksTableCreateCompanionBuilder,
+      $$DraftPicksTableUpdateCompanionBuilder,
+      (DraftPick, $$DraftPicksTableReferences),
+      DraftPick,
+      PrefetchHooks Function({bool seasonId, bool teamId, bool playerId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -18320,4 +19506,6 @@ class $AppDatabaseManager {
       $$TeamLineupsTableTableManager(_db, _db.teamLineups);
   $$InjuriesTableTableManager get injuries =>
       $$InjuriesTableTableManager(_db, _db.injuries);
+  $$DraftPicksTableTableManager get draftPicks =>
+      $$DraftPicksTableTableManager(_db, _db.draftPicks);
 }

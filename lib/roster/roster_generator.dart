@@ -236,6 +236,14 @@ List<GeneratedPlayer> generateRoster(Random rng, {int count = 6}) =>
 List<GeneratedPlayer> generateFreeAgentPool(Random rng, {int count = 25}) =>
     List.generate(count, (_) => _generatePlayer(rng, tierWeights: freeAgentTierWeights));
 
+/// Generates a fresh, average-skewed draft class — the ruleset's "new
+/// players" annual draft (context/rules-mlw-cultz-field.md's "Draft &
+/// Trades"), deliberately distinct from [generateFreeAgentPool]'s
+/// below-average-skewed pool of cut veterans. Same talent distribution as
+/// initial roster generation.
+List<GeneratedPlayer> generateDraftClass(Random rng, {required int count}) =>
+    List.generate(count, (_) => _generatePlayer(rng));
+
 /// A default lineup/rotation for a freshly generated roster, expressed as
 /// indices into the input list (roster_writer.dart maps these to the
 /// actual inserted player ids). Not a recommendation engine — just a cheap

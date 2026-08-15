@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'enums.dart';
 import 'tables/batting_stats.dart';
 import 'tables/divisions.dart';
+import 'tables/draft_picks.dart';
 import 'tables/fielding_stats.dart';
 import 'tables/games.dart';
 import 'tables/injuries.dart';
@@ -39,6 +40,7 @@ part 'database.g.dart';
     TeamLineups,
     PlayoffSeries,
     Injuries,
+    DraftPicks,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -47,7 +49,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -68,6 +70,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(players, players.speedPotential);
             await m.addColumn(players, players.gamesUnavailable);
             await m.createTable(injuries);
+          }
+          if (from < 5) {
+            await m.createTable(draftPicks);
           }
         },
       );

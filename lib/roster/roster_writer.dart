@@ -104,6 +104,49 @@ Future<List<int>> writeFreeAgentPool(AppDatabase db, List<GeneratedPlayer> playe
   });
 }
 
+/// Inserts a single drafted player (Players + PlayerPitches) as "org
+/// depth" — [organizationId] set, `teamId`/`rosterSlot` left null. Not yet on
+/// a major roster: this sim has no minor-league tier to place them on yet
+/// (Phase 7's todo note "Minor roster population: draft overflow + org
+/// depth signings" is the intended eventual home). Distinct from a true free
+/// agent (org null too) — see lib/career/free_agents.dart's org-unaffiliated
+/// filtering. Returns the inserted player id.
+Future<int> writeDraftedPlayer(
+  AppDatabase db, {
+  required int organizationId,
+  required GeneratedPlayer player,
+}) {
+  return db.transaction(() async {
+    final id = await db.into(db.players).insert(PlayersCompanion.insert(
+          organizationId: Value(organizationId),
+          firstName: player.firstName,
+          lastName: player.lastName,
+          age: player.age,
+          contact: player.contact,
+          power: player.power,
+          discipline: player.discipline,
+          speed: player.speed,
+          control: player.control,
+          stamina: player.stamina,
+          range: player.range,
+          hands: player.hands,
+          arm: player.arm,
+          battingPotential: player.battingPotential,
+          pitchingPotential: player.pitchingPotential,
+          fieldingPotential: player.fieldingPotential,
+          speedPotential: player.speedPotential,
+        ));
+    for (final pitch in player.repertoire) {
+      await db.into(db.playerPitches).insert(PlayerPitchesCompanion.insert(
+            playerId: id,
+            pitchType: pitch.type,
+            movement: pitch.movement,
+          ));
+    }
+    return id;
+  });
+}
+
 /// Reads a team's full roster as [RosterMember]s (validation-facing shape).
 Future<List<RosterMember>> readTeamRoster(AppDatabase db, int teamId) async {
   final rows = await (db.select(db.players)..where((p) => p.teamId.equals(teamId))).get();
