@@ -8,6 +8,7 @@ import 'package:wballmgr/roster/roster_rules.dart';
 import 'package:wballmgr/roster/roster_writer.dart';
 
 import '../app_scope.dart';
+import 'player_profile_screen.dart';
 
 class _LoadedRoster {
   final int organizationId;
@@ -249,6 +250,9 @@ class _RosterScreenState extends State<RosterScreen> {
                 title: Text('${p.firstName} ${p.lastName}'),
                 subtitle: Text('Age ${p.age}'),
                 trailing: const Chip(label: Text('Active')),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => PlayerProfileScreen(playerId: p.id)),
+                ),
               ),
             if (dl.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -259,6 +263,9 @@ class _RosterScreenState extends State<RosterScreen> {
                   title: Text('${p.firstName} ${p.lastName}'),
                   subtitle: Text('Age ${p.age}'),
                   trailing: Text('${p.gamesUnavailable} games left'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => PlayerProfileScreen(playerId: p.id)),
+                  ),
                 ),
             ],
             const Divider(height: 32),

@@ -4,6 +4,7 @@ import 'package:wballmgr/data/database.dart';
 import 'package:wballmgr/data/enums.dart';
 
 import '../app_scope.dart';
+import 'player_profile_screen.dart';
 
 class _BoxScoreData {
   final Game game;
@@ -189,7 +190,7 @@ class _BattingTable extends StatelessWidget {
         rows: [
           for (final b in stats)
             DataRow(cells: [
-              DataCell(Text(_playerName(players, b.playerId))),
+              DataCell(Text(_playerName(players, b.playerId)), onTap: () => _openProfile(context, b.playerId)),
               DataCell(Text('${b.ab}')),
               DataCell(Text('${b.r}')),
               DataCell(Text('${b.h}')),
@@ -234,7 +235,7 @@ class _PitchingTable extends StatelessWidget {
         rows: [
           for (final p in stats)
             DataRow(cells: [
-              DataCell(Text(_playerName(players, p.playerId))),
+              DataCell(Text(_playerName(players, p.playerId)), onTap: () => _openProfile(context, p.playerId)),
               DataCell(Text(_formatIp(p.outsRecorded))),
               DataCell(Text('${p.h}')),
               DataCell(Text('${p.r}')),
@@ -259,6 +260,10 @@ class _PitchingTable extends StatelessWidget {
 String _playerName(Map<int, Player> players, int playerId) {
   final p = players[playerId];
   return p == null ? 'Unknown' : '${p.firstName} ${p.lastName}';
+}
+
+void _openProfile(BuildContext context, int playerId) {
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => PlayerProfileScreen(playerId: playerId)));
 }
 
 String _formatIp(int outsRecorded) {
