@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'data/database.dart';
 import 'league/league_seed.dart';
 import 'ui/app_scope.dart';
+import 'ui/screens/draft_trade_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/roster_screen.dart';
 import 'ui/screens/schedule_screen.dart';
@@ -48,6 +49,7 @@ class _AppShellState extends State<AppShell> {
     RosterScreen(),
     ScheduleScreen(),
     StandingsScreen(),
+    DraftTradeScreen(),
   ];
 
   @override
@@ -63,6 +65,7 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.groups), label: 'Roster'),
           NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Schedule'),
           NavigationDestination(icon: Icon(Icons.leaderboard), label: 'Standings'),
+          NavigationDestination(icon: Icon(Icons.swap_horiz), label: 'Draft/Trade'),
         ],
       ),
     );
