@@ -9,6 +9,7 @@ import 'package:wballmgr/data/enums.dart';
 import 'package:wballmgr/draft/draft_manager.dart';
 import 'package:wballmgr/league/game_runner.dart';
 import 'package:wballmgr/league/league_seed.dart';
+import 'package:wballmgr/league/season_rollover.dart';
 import 'package:wballmgr/main.dart';
 
 void main() {
@@ -29,6 +30,40 @@ void main() {
 
     expect(find.text('Season 1 Draft'), findsOneWidget);
     expect(find.text('R1 #1'), findsOneWidget);
+
+    await db.close();
+  });
+
+  testWidgets(
+      'draft tab still shows the just-completed season\'s picks after "Start Next Season" rolls the active '
+      'season forward', (tester) async {
+    // Regression test: runDraft records picks against the *completed*
+    // season (see draft_manager.dart/season_rollover.dart), but the screen
+    // used to query DraftPicks for whichever season was currently active —
+    // which, right after a rollover, is the brand-new season that hasn't
+    // had its own draft yet. That made the draft look like it silently
+    // didn't happen, even though it did.
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final seasonId = await seedNewLeague(db);
+    await simulateRestOfSeason(db, seasonId: seasonId);
+    final newSeasonId = await rolloverSeason(db, completedSeasonId: seasonId, random: Random(7));
+    expect(newSeasonId, isNot(seasonId));
+
+    final picks = await (db.select(db.draftPicks)..where((p) => p.seasonId.equals(seasonId))).get();
+    expect(picks, isNotEmpty, reason: 'sanity check: rolloverSeason should have actually run the draft');
+
+    await tester.pumpWidget(WballmgrApp(db: db));
+    await tester.tap(find.text('Draft/Trade'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Season 1 Draft'), findsOneWidget);
+    expect(find.text('R1 #1'), findsOneWidget);
+    expect(find.textContaining('runs automatically'), findsNothing);
 
     await db.close();
   });

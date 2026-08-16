@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
 import 'package:wballmgr/data/database.dart';
@@ -83,12 +82,22 @@ class _DraftResultsViewState extends State<_DraftResultsView> {
     _future ??= _load(AppScope.of(context).db);
   }
 
+  // The draft runs at rollover and is recorded against the season that just
+  // *completed*, not the newly active one (see lib/draft/draft_manager.dart
+  // and lib/league/season_rollover.dart) — so this deliberately shows the
+  // most recent season with any DraftPicks rows, not the active season.
+  // Querying by "active season" would always come up empty right after a
+  // rollover, since the new season's own draft hasn't happened yet.
   Future<_DraftData> _load(AppDatabase db) async {
-    final season = await (db.select(db.seasons)..where((s) => s.isActive.equals(true))).getSingle();
-    final picks = await (db.select(db.draftPicks)
-          ..where((p) => p.seasonId.equals(season.id))
-          ..orderBy([(p) => OrderingTerm(expression: p.overallPick)]))
-        .get();
+    final allPicks = await db.select(db.draftPicks).get();
+    if (allPicks.isEmpty) {
+      final activeSeason = await (db.select(db.seasons)..where((s) => s.isActive.equals(true))).getSingle();
+      return _DraftData(seasonNumber: activeSeason.number, picks: const []);
+    }
+    final latestSeasonId = allPicks.map((p) => p.seasonId).reduce((a, b) => a > b ? a : b);
+    final season = await (db.select(db.seasons)..where((s) => s.id.equals(latestSeasonId))).getSingle();
+    final picks = allPicks.where((p) => p.seasonId == latestSeasonId).toList()
+      ..sort((a, b) => a.overallPick.compareTo(b.overallPick));
     final teamNames = {for (final t in await db.select(db.teams).get()) t.id: t.name};
     final playerIds = picks.map((p) => p.playerId).toSet();
     final playerNames = playerIds.isEmpty
