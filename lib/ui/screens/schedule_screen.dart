@@ -7,6 +7,7 @@ import 'package:wballmgr/league/game_runner.dart';
 import 'package:wballmgr/league/playoffs.dart';
 
 import '../app_scope.dart';
+import 'box_score_screen.dart';
 
 class _ScheduleData {
   final int seasonId;
@@ -199,6 +200,11 @@ class _GameTile extends StatelessWidget {
       trailing: isDone
           ? Text('${game.awayScore}-${game.homeScore}')
           : TextButton(onPressed: busy ? null : onSimulate, child: const Text('Simulate')),
+      onTap: isDone
+          ? () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => BoxScoreScreen(gameId: game.id)),
+              )
+          : null,
     );
   }
 }
